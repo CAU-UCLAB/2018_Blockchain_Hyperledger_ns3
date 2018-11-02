@@ -77,6 +77,7 @@ namespace ns3 {
         int     minedBlocksInMainChain;
         long    blockTimeouts;
         double  meanTransactionConfirmTime;
+        int     nodeGeneratedTransaction;
         
     } nodeStatistics;
 

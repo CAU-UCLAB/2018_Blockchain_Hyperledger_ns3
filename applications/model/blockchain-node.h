@@ -133,6 +133,10 @@ namespace ns3 {
              */
             //void AdvertiseFullBlock (const Block &newBlock);
 
+            void AdvertiseNewTransaction(const Transaction &newTrans, Ipv4Address receivedFromIpv4);
+            
+            bool HasTransaction(int nodeId, int transId);
+
             void CreateTransaction();
 
             void ScheduleNextTransaction();

@@ -85,7 +85,6 @@ namespace ns3{
             const double                m_realAverageBlockGenIntervalSeconds;   // in seconds, 15 sec(Ethereum)
             double                      m_averageBlockGenIntervalSeconds;
 
-            std::vector<Transaction>    m_notValidatedTransaction;
 
             enum Cryptocurrency  m_cryptocurrency;
 
