@@ -319,6 +319,7 @@ namespace ns3 {
         rapidjson::Document inv;
         rapidjson::Document block;
 
+        std::vector<Transaction>::iterator      trans_it;
         int height = m_blockchain.GetCurrentTopBlock()->GetBlockHeight() + 1;
         int minerId = GetNode()->GetId();
         int nonce = 0;
@@ -360,6 +361,19 @@ namespace ns3 {
         Block newBlock(height, minerId, nonce, parentBlockMinerId, m_nextBlockSize,
                         currentTime, currentTime, Ipv4Address("127.0.0.1"));
         
+        /*
+         * Push transactions to new Blocks
+         */
+        
+        for(trans_it = m_notValidatedTransaction.begin(); trans_it < m_notValidatedTransaction.end(); trans_it++)
+        {
+            trans_it->SetValidation();
+        }
+        newBlock.SetTransactions(m_notValidatedTransaction);
+        m_notValidatedTransaction.clear();
+
+        //newBlock.PrintAllTransaction();
+        
         rapidjson::Value value;
         rapidjson::Value array(rapidjson::kArrayType);
         //rapidjson::Value blockInfor(rapidjson::kObjectType);
@@ -374,7 +388,6 @@ namespace ns3 {
 
             value.SetString(blockHash.c_str(), blockHash.size(), inv.GetAllocator());
             array.PushBack(value, inv.GetAllocator());
-            //std::cout<< "MineBlock function : Add INV string in array\n";
             inv.AddMember("inv", array, inv.GetAllocator());
         }
 

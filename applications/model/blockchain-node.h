@@ -109,6 +109,7 @@ namespace ns3 {
              */
             void ValidateBlock(const Block &newBlock);
 
+            void ValidateTransaction(const Block &newBlock);
             /*
              * Adds the new block in to the blockchain, advertises it to the peers and validates any ophan children
              * param newBlock : the new block

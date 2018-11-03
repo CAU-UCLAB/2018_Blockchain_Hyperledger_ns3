@@ -113,6 +113,8 @@ namespace ns3{
         m_transId = tranSource.m_transId;
         m_transSizeByte = tranSource.m_transSizeByte;
         m_timeStamp = tranSource.m_timeStamp;
+        m_validatation = tranSource.m_validatation;
+        m_validatation = tranSource.m_execution;
 
         return *this;
     }
@@ -161,6 +163,7 @@ namespace ns3{
         m_timeStamp = blockSource.m_timeStamp;
         m_timeReceived = blockSource.m_timeReceived;
         m_receivedFromIpv4 = blockSource.m_receivedFromIpv4;
+        m_transactions = blockSource.m_transactions;
         m_totalTransactions = 0;
         
     }
@@ -259,6 +262,18 @@ namespace ns3{
         m_receivedFromIpv4 = receivedFromIpv4;
     }
 
+    std::vector<Transaction>
+    Block::GetTransactions(void) const
+    {
+        return m_transactions;
+    }
+
+    void
+    Block::SetTransactions(const std::vector<Transaction> &transactions)
+    {
+        m_transactions = transactions;
+    }
+
     bool
     Block::IsParent(const Block &block) const
     {
@@ -330,6 +345,24 @@ namespace ns3{
         m_transactions.push_back(newTrans);
         m_totalTransactions++;
     
+    }
+
+    void
+    Block::PrintAllTransaction(void)
+    {
+        if(m_transactions.size() != 0)
+        {
+            for(auto const &tran: m_transactions)
+            {
+                std::cout<<"[Blockheight: " <<m_blockHeight << "] Transaction nodeId: " 
+                    << tran.GetTransNodeId() << " transId : " << tran.GetTransId() << "\n";
+            }
+        }
+        else
+        {
+            std::cout<<"[Blockheight: " <<m_blockHeight << "]  do not have transactions\n";
+        }
+
     }
 
     Block&

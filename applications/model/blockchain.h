@@ -167,8 +167,9 @@ namespace ns3 {
             Ipv4Address GetReceivedFromIpv4(void) const;
             void SetReceivedFromIpv4(Ipv4Address receivedFromIpv4);
 
+            std::vector<Transaction> GetTransactions(void) const;
+            void SetTransactions(const std::vector<Transaction> &transactions);
             /*
-
             * Checks if the block provided as the argument is the parent of this block object
             */
             bool IsParent (const Block &block) const;
@@ -188,6 +189,8 @@ namespace ns3 {
             
             void AddTransaction(const Transaction& newTrans);
 
+            void PrintAllTransaction(void);
+            
             Block& operator = (const Block &blockSource);     //Assignment Constructor
 
             friend bool operator == (const Block &block1, const Block &block2);

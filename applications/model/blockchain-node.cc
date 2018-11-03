@@ -660,8 +660,9 @@ namespace ns3 {
                             NS_LOG_INFO("GET_DATA");
                             unsigned int j;
                             int totalBlockMessageSize = 0;
-                            std::vector<Block>              requestBlocks;
-                            std::vector<Block>::iterator    block_it;
+                            std::vector<Block>                      requestBlocks;
+                            std::vector<Block>::iterator            block_it;
+                            std::vector<Transaction>::iterator      trans_it;
 
                             m_nodeStats->getDataReceivedBytes += m_blockchainMessageHeader + m_countBytes + d["blocks"].Size()*m_inventorySizeBytes;
 
@@ -695,14 +696,17 @@ namespace ns3 {
                             {
                                 rapidjson::Value value;
                                 rapidjson::Value array(rapidjson::kArrayType);
+                                rapidjson::Value tranArray(rapidjson::kArrayType);
+                                std::vector<Transaction> requestTransactions;
 
                                 d.RemoveMember("blocks");
 
                                 for(block_it = requestBlocks.begin() ; block_it < requestBlocks.end(); block_it++)
                                 {
+                                    //block_it->PrintAllTransaction();
+                                    requestTransactions = block_it->GetTransactions();
                                     rapidjson::Value blockInfo(rapidjson::kObjectType);
-                                    //NS_LOG_INFO("In requestHeaders " << *block_it);
-
+                                    
                                     value = block_it->GetBlockHeight();
                                     blockInfo.AddMember("height", value, d.GetAllocator());
                                     
@@ -723,6 +727,25 @@ namespace ns3 {
 
                                     value = block_it->GetTimeReceived();
                                     blockInfo.AddMember("timeReceived", value, d.GetAllocator());
+
+                                    for(trans_it = requestTransactions.begin(); trans_it < requestTransactions.end(); trans_it++)
+                                    {
+                                        //std::cout<<"node " << GetNode()->GetId()<<" add transaction\n";
+                                        rapidjson::Value transInfo(rapidjson::kObjectType);
+                                        
+                                        value = trans_it->GetTransNodeId();
+                                        transInfo.AddMember("nodeId", value, d.GetAllocator());
+
+                                        value = trans_it->GetTransId();
+                                        transInfo.AddMember("transId", value, d.GetAllocator());
+
+                                        value = trans_it->GetTransTimeStamp();
+                                        transInfo.AddMember("timestamp", value, d.GetAllocator());
+
+                                        tranArray.PushBack(transInfo, d.GetAllocator());
+
+                                    }
+                                    blockInfo.AddMember("transactions", tranArray, d.GetAllocator());
 
                                     array.PushBack(blockInfo, d.GetAllocator());
                                 }
@@ -914,9 +937,21 @@ namespace ns3 {
             }
             else
             {
+                std::vector<Transaction> newTransactions;
                 Block newBlock(d["blocks"][j]["height"].GetInt(), d["blocks"][j]["minerId"].GetInt(), d["blocks"][j]["nonce"].GetInt()
                                 , d["blocks"][j]["parentBlockMinerId"].GetInt(), d["blocks"][j]["size"].GetInt()
                                 , d["blocks"][j]["timeStamp"].GetDouble(), Simulator::Now().GetSeconds(), InetSocketAddress::ConvertFrom(from).GetIpv4());
+                
+                for(unsigned int i = 0 ; i < d["blocks"][j]["transactions"].Size(); i++)
+                {
+                    int transNodeId = d["blocks"][j]["transactions"][i]["nodeId"].GetInt();
+                    int transId = d["blocks"][j]["transactions"][i]["transId"].GetInt();
+                    double timeStamp = d["blocks"][j]["transactions"][i]["timestamp"].GetDouble();
+                    Transaction newTrans(transNodeId, transId, timeStamp);
+                    newTransactions.push_back(newTrans);
+                    //std::cout<<"Node " << GetNode()->GetId() << " confirmed transaction nodeid: " << transNodeId << " transId: " <<  transId << "\n";
+                }
+                newBlock.SetTransactions(newTransactions);
                 ReceiveBlock(newBlock);
             }
         }
@@ -1003,10 +1038,50 @@ namespace ns3 {
             const int averageBlockSizeBytes = 238263;   // we should modify it
             const double averageValidationTimeSeconds = 0.174;
             double validationTime = averageValidationTimeSeconds * newBlock.GetBlockSizeBytes() / averageBlockSizeBytes;
-            
+            ValidateTransaction(newBlock);
+
             //std::cout<<"validationTime : " << validationTime << "\n";
             Simulator::Schedule (Seconds(validationTime), &BlockchainNode::AfterBlockValidation, this, newBlock);
             NS_LOG_INFO("ValidateBlock : the block will be validated in " << validationTime << "s");
+        }
+
+    }
+
+    void
+    BlockchainNode::ValidateTransaction(const Block &newBlock)
+    {
+        std::vector<Transaction>                requestTransactions;
+        std::vector<Transaction>::iterator      trans_it;
+        std::vector<Transaction>::iterator      notValTrans_it;
+        requestTransactions = newBlock.GetTransactions();
+
+        for(trans_it = requestTransactions.begin(); trans_it < requestTransactions.end(); trans_it++)
+        {
+            /*
+            std::cout<<"Node "<<GetNode()->GetId() << " is validating transaction nodeId : " 
+                    << trans_it->GetTransNodeId() << " transId: " << trans_it->GetTransId() << "\n";
+            */
+            for(auto const &tran: m_transaction)
+            {
+                if(tran == *trans_it)
+                {
+                    break;
+                }
+            }
+            if(!m_notValidatedTransaction.empty())
+            {
+
+                for(notValTrans_it = m_notValidatedTransaction.begin(); notValTrans_it < m_notValidatedTransaction.end(); notValTrans_it++)
+                {
+                    if(*notValTrans_it == *trans_it)
+                    {
+                        notValTrans_it = m_notValidatedTransaction.erase(notValTrans_it);
+                        break;
+                    }
+                }
+            }
+            
+            m_transaction.push_back(*trans_it);
         }
     }
 
@@ -1267,7 +1342,7 @@ namespace ns3 {
     BlockchainNode::ScheduleNextTransaction()
     {
         NS_LOG_FUNCTION(this);
-        double tTime = rand()%10+1;
+        double tTime = rand()%20+1;
         m_nextTransaction = Simulator::Schedule(Seconds(tTime), &BlockchainNode::CreateTransaction, this);
 
     }
