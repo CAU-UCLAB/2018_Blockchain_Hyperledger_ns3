@@ -85,7 +85,7 @@ namespace ns3 {
                             MakeDoubleAccessor(&BlockchainMiner::m_averageBlockGenIntervalSeconds),
                             MakeDoubleChecker<double>())
             .AddAttribute("Cryptocurrency",
-                            "ETHEREUM, LEDGER",
+                            "ETHEREUM, HYPERLEDGER",
                             UintegerValue(0),
                             MakeUintegerAccessor(&BlockchainMiner::m_cryptocurrency),
                             MakeUintegerChecker<uint32_t> ())

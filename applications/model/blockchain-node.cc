@@ -63,6 +63,7 @@ namespace ns3 {
         m_meanBlockSize = 0;
         m_numberOfPeers = m_peersAddresses.size();
         m_transactionId = 1;
+        m_numberofEndorsers = 6;
     }
 
     BlockchainNode::~BlockchainNode(void)
@@ -127,6 +128,13 @@ namespace ns3 {
     {
         NS_LOG_FUNCTION(this);
         m_protocolType = protocolType;
+    }
+
+    void
+    BlockchainNode::SetCommitterType(enum CommitterType cType)
+    {
+        NS_LOG_FUNCTION(this);
+        m_committerType = cType;
     }
 
     void
@@ -215,7 +223,10 @@ namespace ns3 {
         m_nodeStats->connections = m_peersAddresses.size();
         m_nodeStats->blockTimeouts = 0;
 
-        CreateTransaction();
+        if(m_committerType == CLIENT)
+        {
+            CreateTransaction();
+        }
         //ScheduleNextTransaction();
     }
 
@@ -418,6 +429,8 @@ namespace ns3 {
                                 int nodeId = d["transactions"][j]["nodeId"].GetInt();
                                 int transId = d["transactions"][j]["transId"].GetInt();
                                 int timestamp = d["transactions"][j]["timestamp"].GetDouble();
+                                bool transValidation = d["transactions"][j]["validation"].GetBool();
+                                int transExecution = d["transactions"][j]["execution"].GetInt();
                             
                                 if(HasTransaction(nodeId, transId))
                                 {
@@ -429,13 +442,116 @@ namespace ns3 {
                                 {
                                     Transaction newTrans(nodeId, transId, timestamp);
                                     m_transaction.push_back(newTrans);
-                                    m_notValidatedTransaction.push_back(newTrans);
+                                    //m_notValidatedTransaction.push_back(newTrans);
 
-                                    AdvertiseNewTransaction(newTrans, InetSocketAddress::ConvertFrom(from).GetIpv4());
+                                    if(m_committerType == ENDORSER)
+                                    {
+                                        newTrans.SetExecution(GetNode()->GetId());
+                                        ExecuteTransaction(newTrans, InetSocketAddress::ConvertFrom(from).GetIpv4());
+                                    }
+                                    else
+                                    {
+                                        AdvertiseNewTransaction(newTrans, TRANSACTION, InetSocketAddress::ConvertFrom(from).GetIpv4());
+
+                                    }
                                 }
                                 
                             }
 
+                            break;
+                        }
+                        case REPLY_TRANS:
+                        {
+                            NS_LOG_INFO("REPLY_TRANS");
+                            unsigned int j;
+                            std::vector<Transaction>            requestTransactions;
+                            std::vector<Transaction>::iterator  trans_it;
+
+                            m_nodeStats->getDataReceivedBytes += m_blockchainMessageHeader + m_countBytes + d["transactions"].Size()*m_inventorySizeBytes;
+
+                            for(j = 0; j < d["transactions"].Size(); j++)
+                            {
+                                int nodeId = d["transactions"][j]["nodeId"].GetInt();
+                                int transId = d["transactions"][j]["transId"].GetInt();
+                                int timestamp = d["transactions"][j]["timestamp"].GetDouble();
+                                bool transValidation = d["transactions"][j]["validation"].GetBool();
+                                int transExecution = d["transactions"][j]["execution"].GetInt();
+
+                            
+                                if(HasTransactionAndExecuted(nodeId, transId, transExecution))
+                                {
+                                    NS_LOG_INFO("REPLY_TRANS: Blockchain node " << GetNode()->GetId()
+                                                << " has the reply_transaction nodeID: " << nodeId
+                                                << " and transId = " << transId);
+                                }
+                                else if(!HasTransactionAndExecuted(nodeId, transId, transExecution) && HasTransaction(nodeId, transId) && GetNode()->GetId() != nodeId)
+                                {
+                                    //if node is Committer...
+
+                                    std::vector<Transaction>::iterator it_tran;
+
+                                    for(it_tran = m_transaction.begin(); it_tran < m_transaction.end(); it_tran++)
+                                    {
+                                        if(it_tran->GetTransNodeId() == nodeId && it_tran->GetTransId()==transId)
+                                        {
+                                            it_tran->SetExecution(transExecution);
+                                            break;
+                                        }
+                                    }
+                                    Transaction newTrans(nodeId, transId, timestamp);
+                                    newTrans.SetExecution(transExecution);
+                                    m_replyTransaction.push_back(newTrans);
+                                    AdvertiseNewTransaction(newTrans, REPLY_TRANS, InetSocketAddress::ConvertFrom(from).GetIpv4());
+
+                                }
+                                else if(!HasTransactionAndExecuted(nodeId, transId, transExecution)&& HasTransaction(nodeId, transId) && GetNode()->GetId() == nodeId)
+                                {
+                                    
+                                    //if node is Client...
+
+                                    std::vector<Transaction>::iterator it_tran;
+
+                                    for(it_tran = m_transaction.begin(); it_tran < m_transaction.end(); it_tran++)
+                                    {
+                                        if(it_tran->GetTransNodeId() == nodeId && it_tran->GetTransId()==transId)
+                                        {
+                                            it_tran->SetExecution(transExecution);
+                                            break;
+                                        }
+                                    }
+                                    
+                                    Transaction newTrans(nodeId, transId, timestamp);
+                                    newTrans.SetExecution(transExecution);
+                                    m_notExecutedTransaction.push_back(newTrans);
+
+                                    if(m_notExecutedTransaction.size() == m_numberofEndorsers)
+                                    {
+                                        AdvertiseNewTransaction(newTrans, EXECUTED_TRANS, InetSocketAddress::ConvertFrom(from).GetIpv4());
+                                        m_notExecutedTransaction.clear();
+                                    }
+                                }
+                                else
+                                {
+                                    //if node is committer which didn't receive oiginal transaction
+                                    
+                                    Transaction newTrans(nodeId, transId, timestamp);
+                                    newTrans.SetExecution(transExecution);
+                                    m_transaction.push_back(newTrans);
+                                    //m_notValidatedTransactionm_notValidatedTransaction.push_back(newTrans);
+                                    m_replyTransaction.push_back(newTrans);
+                                    AdvertiseNewTransaction(newTrans, REPLY_TRANS, InetSocketAddress::ConvertFrom(from).GetIpv4());
+                                }
+                                
+                            }
+                            break;
+                        }
+                        case EXECUTED_TRANS:
+                        {
+                            
+                            break;
+                        }
+                        case RESULT_TRANS:
+                        {
                             break;
                         }
                         case GET_HEADERS:
@@ -1214,7 +1330,7 @@ namespace ns3 {
     }
 
     void
-    BlockchainNode::AdvertiseNewTransaction(const Transaction &newTrans, Ipv4Address receivedFromIpv4)
+    BlockchainNode::AdvertiseNewTransaction(const Transaction &newTrans, enum Messages megType, Ipv4Address receivedFromIpv4)
     {
         NS_LOG_FUNCTION(this);
 
@@ -1233,7 +1349,7 @@ namespace ns3 {
         value.SetString("transaction");
         transD.AddMember("type", value, transD.GetAllocator());
 
-        value = TRANSACTION;
+        value = megType;
         transD.AddMember("message", value, transD.GetAllocator());
 
         value = newTrans.GetTransNodeId();
@@ -1279,6 +1395,32 @@ namespace ns3 {
         return false;
     }
 
+    bool
+    BlockchainNode::HasTransactionAndExecuted(int nodeId, int transId, int transExecution)
+    {
+        for(auto const &transaction: m_replyTransaction)
+        {
+            if(transaction.GetTransNodeId() == nodeId && transaction.GetTransId() == transId && transaction.GetExecution() == transExecution)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool
+    BlockchainNode::HasTransactionAndValidated(int nodeId, int transId)
+    {
+        for(auto const &transaction: m_transaction)
+        {
+            if(transaction.GetTransNodeId() == nodeId && transaction.GetTransId() == transId && transaction.IsValidated() == true)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     void
     BlockchainNode::CreateTransaction()
     {
@@ -1289,7 +1431,7 @@ namespace ns3 {
         int nodeId = GetNode()->GetId();
         int transId = m_transactionId;
         double tranTimestamp = Simulator::Now().GetSeconds();
-
+        m_receivedFromEndorsers = 0;
         transD.SetObject();
 
         Transaction newTrans(nodeId, transId, tranTimestamp);
@@ -1312,6 +1454,12 @@ namespace ns3 {
 
         value = newTrans.GetTransTimeStamp();
         transInfo.AddMember("timestamp", value, transD.GetAllocator());
+
+        value = newTrans.IsValidated();
+        transInfo.AddMember("validation", value, transD.GetAllocator());
+
+        value = newTrans.GetExecution();
+        transInfo.AddMember("execution", value, transD.GetAllocator());
 
         array.PushBack(transInfo, transD.GetAllocator());
         transD.AddMember("transactions", array, transD.GetAllocator());
@@ -1346,6 +1494,72 @@ namespace ns3 {
         m_nextTransaction = Simulator::Schedule(Seconds(tTime), &BlockchainNode::CreateTransaction, this);
 
     }
+
+    void
+    BlockchainNode::ExecuteTransaction(const Transaction &newTrans, Ipv4Address receivedFromIpv4)
+    {
+        NS_LOG_FUNCTION(this);
+
+        rapidjson::Document transD;
+
+        int nodeId = newTrans.GetTransNodeId();
+        int transId = newTrans.GetTransId();
+        double tranTimestamp = newTrans.GetTransTimeStamp();
+
+        //newTrans.SetExecution();
+        transD.SetObject();
+
+        rapidjson::Value value;
+        rapidjson::Value array(rapidjson::kArrayType);
+        rapidjson::Value transInfo(rapidjson::kObjectType);
+
+        value.SetString("transaction");
+        transD.AddMember("type", value, transD.GetAllocator());
+
+        value = REPLY_TRANS;
+        transD.AddMember("message", value, transD.GetAllocator());
+
+        value = newTrans.GetTransNodeId();
+        transInfo.AddMember("nodeId", value, transD.GetAllocator());
+
+        value = newTrans.GetTransId();
+        transInfo.AddMember("transId", value, transD.GetAllocator());
+
+        value = newTrans.GetTransTimeStamp();
+        transInfo.AddMember("timestamp", value, transD.GetAllocator());
+
+        value = newTrans.IsValidated();
+        transInfo.AddMember("validation", value, transD.GetAllocator());
+        
+        value = newTrans.GetExecution();
+        transInfo.AddMember("execution", value, transD.GetAllocator());
+
+        array.PushBack(transInfo, transD.GetAllocator());
+        transD.AddMember("transactions", array, transD.GetAllocator());
+
+        rapidjson::StringBuffer transactionInfo;
+        rapidjson::Writer<rapidjson::StringBuffer> tranWriter(transactionInfo);
+        transD.Accept(tranWriter);
+
+ 
+        const uint8_t delimiter[] = "#";
+
+        m_peersSockets[receivedFromIpv4]->Send(reinterpret_cast<const uint8_t*>(transactionInfo.GetString()), transactionInfo.GetSize(), 0);
+        m_peersSockets[receivedFromIpv4]->Send(delimiter, 1, 0);
+    
+
+    }
+
+    void
+    BlockchainNode::NotifyTransaction(const Block &newBlock)
+    {
+        NS_LOG_FUNCTION(this);
+
+        
+
+    }
+
+
 
     void
     BlockchainNode::SendMessage(enum Messages receivedMessage, enum Messages responseMessage, rapidjson::Document &d, Ptr<Socket> outgoingSocket)

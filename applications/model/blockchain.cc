@@ -21,7 +21,7 @@ namespace ns3{
         m_transSizeByte = 100;
         m_timeStamp = timeStamp;
         m_validatation = false;
-        m_execution = false;
+        m_execution = 0;
     }
     
     Transaction::Transaction()
@@ -88,21 +88,21 @@ namespace ns3{
     }
 
     void
-    Transaction::SetValidation(void)
+    Transaction::SetValidation()
     {
         m_validatation = true;
     }
 
-    bool
-    Transaction::IsExecuted(void) const
+    int
+    Transaction::GetExecution(void) const
     {
         return m_execution;
     }
 
     void
-    Transaction::SetExecution(void)
+    Transaction::SetExecution(int endoerserId)
     {
-        m_execution = true;
+        m_execution = endoerserId;
     }
 
 
@@ -664,6 +664,9 @@ namespace ns3{
             case GET_DATA: return "GET_DATA";
             case BLOCK: return "BLOCK";
             case NO_MESSAGE: return "NO_MESSAGE";
+            case REPLY_TRANS: return "REPLY_TRANS";
+            case EXECUTED_TRANS: return "EXECUTED_TRANS";
+            case RESULT_TRANS: return "RESULT_TRANS";
         }
 
         return 0;
@@ -674,7 +677,6 @@ namespace ns3{
         switch(m)
         {
             case NORMAL_MINER: return "ETHEREUM";
-            case ENDORSER: return "ENDORSER";
             case ORDER: return "ORDER";
         }
 
@@ -692,12 +694,23 @@ namespace ns3{
          return 0;
     }
 
+    const char* getCommitterType(enum CommitterType m)
+    {
+        switch(m)
+        {
+            case COMMITTER: return "COMMITTER";
+            case ENDORSER: return "ENDORSER";
+            case CLIENT: return "CLIENT";
+        }
+        return 0;
+    }
+
     const char* getCryptocurrency(enum Cryptocurrency m)
     {
         switch(m)
         {
             case ETHEREUM: return "ETHEREUM";
-            case LEDGER: return "LEDGER";
+            case HYPERLEDGER: return "HYPERLEDGER";
         }
         
         return 0;

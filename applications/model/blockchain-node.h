@@ -44,6 +44,7 @@ namespace ns3 {
 
             void SetProtocolType (enum ProtocolType protocolType);
 
+            void SetCommitterType (enum CommitterType cType);
 
         protected:
 
@@ -134,13 +135,21 @@ namespace ns3 {
              */
             //void AdvertiseFullBlock (const Block &newBlock);
 
-            void AdvertiseNewTransaction(const Transaction &newTrans, Ipv4Address receivedFromIpv4);
+            void AdvertiseNewTransaction(const Transaction &newTrans, enum Messages megType, Ipv4Address receivedFromIpv4);
             
             bool HasTransaction(int nodeId, int transId);
+
+            bool HasTransactionAndExecuted(int nodeId, int transId, int transExecution);
+
+            bool HasTransactionAndValidated(int nodeId, int transId);
 
             void CreateTransaction();
 
             void ScheduleNextTransaction();
+
+            void ExecuteTransaction(const Transaction &newTrans, Ipv4Address receivedFromIpv4);
+
+            void NotifyTransaction(const Block &newBlock);
 
             /*
              * Send a message to a peer
@@ -235,9 +244,13 @@ namespace ns3 {
             int             m_transactionIndexSize;         //The transaction index size in bytes. Needed for compressed blocks
             int             m_transactionId;
             EventId         m_nextTransaction;
+            int             m_numberofEndorsers;
+            int             m_receivedFromEndorsers;
 
             std::vector<Transaction>                        m_transaction;
-            std::vector<Transaction>                        m_notValidatedTransaction;            
+            std::vector<Transaction>                        m_notValidatedTransaction;
+            std::vector<Transaction>                        m_replyTransaction;
+            std::vector<Transaction>                        m_notExecutedTransaction;            
             std::vector<Ipv4Address>                        m_peersAddresses;                   // The address of peers
             std::map<Ipv4Address, double>                   m_peersDownloadSpeeds;              // The peerDownloadSpeeds of channels
             std::map<Ipv4Address, double>                   m_peersUploadSpeeds;                // The peerUploadSpeeds of channels
@@ -253,6 +266,7 @@ namespace ns3 {
             std::vector<double>                             m_receiveBlockTimes;                // contains the times of the next sendBlock events
             std::vector<double>                             m_receiveCompressedBlockTimes;      // contains the times of the next sendBlock events
             enum ProtocolType                               m_protocolType;                     // protocol type
+            enum CommitterType                              m_committerType;
 
             const int       m_blockchainPort;           //8080
             const int       m_secondsPerMin;            //60

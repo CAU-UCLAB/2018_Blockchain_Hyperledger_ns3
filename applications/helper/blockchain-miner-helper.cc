@@ -46,10 +46,6 @@ namespace ns3 {
                 return app;
                 //break;
             }
-            case ENDORSER:
-            {
-                break;
-            }
             case ORDER:
             {
 
@@ -77,11 +73,6 @@ namespace ns3 {
                 m_factory.SetTypeId("ns3::BlockchainMiner");
                 SetFactoryAttributes();
                 break;
-            }
-            case ENDORSER:
-            {
-                m_factory.SetTypeId("ns3::BlockchainMiner");
-                SetFactoryAttributes();
             }
             case ORDER:
             {

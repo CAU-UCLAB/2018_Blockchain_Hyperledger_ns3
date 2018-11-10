@@ -17,13 +17,22 @@ namespace ns3 {
         GET_DATA,       //4
         BLOCK,          //5    
         NO_MESSAGE,     //6
+        REPLY_TRANS,    //7
+        EXECUTED_TRANS,  //8
+        RESULT_TRANS,   //9
     };
 
     enum MinerType
     {
         NORMAL_MINER,
-        ENDORSER,
         ORDER,
+    };
+
+    enum CommitterType
+    {
+        COMMITTER,
+        ENDORSER,
+        CLIENT,
     };
     
     enum ProtocolType
@@ -35,7 +44,7 @@ namespace ns3 {
     enum Cryptocurrency
     {
         ETHEREUM,
-        LEDGER
+        HYPERLEDGER
     };
 
     enum BlockchainRegion
@@ -88,6 +97,7 @@ namespace ns3 {
 
     const char* getMessageName(enum Messages m);
     const char* getMinerType(enum MinerType m);
+    const char* getCommitterType(enum CommitterType m);
     const char* getProtocolType(enum ProtocolType m);
     const char* getCryptocurrency(enum Cryptocurrency m);
     const char* getBlockchainRegion(enum BlockchainRegion m);
@@ -114,10 +124,10 @@ namespace ns3 {
             void SetTransTimeStamp(double timeStamp);
 
             bool IsValidated(void) const;
-            void SetValidation(void);
+            void SetValidation();
 
-            bool IsExecuted(void) const;
-            void SetExecution(void);
+            int GetExecution(void) const;
+            void SetExecution(int endoerserId);
 
             Transaction& operator = (const Transaction &tranSource);     //Assignment Constructor
 
@@ -130,7 +140,7 @@ namespace ns3 {
             int m_transSizeByte;
             double m_timeStamp;
             bool m_validatation; 
-            bool m_execution;
+            int m_execution;
 
     };
 

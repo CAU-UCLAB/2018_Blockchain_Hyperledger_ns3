@@ -680,10 +680,10 @@ BlockchainTopologyHelper::BlockchainTopologyHelper (uint32_t noCpus, uint32_t to
 
       break;		
     }
-    case LEDGER: 
+    case HYPERLEDGER: 
     {
       if (m_systemId == 0)
-        std::cout << "LEDGER Mode selected\n";
+        std::cout << "HYPERLEDGER Mode selected\n";
       std::array<double,6> nodesDistributionWeights {36.61, 47.91, 1.49, 10.22, 2.38, 1.39};
       m_nodesDistribution = std::piecewise_constant_distribution<double> (nodesDistributionIntervals.begin(), nodesDistributionIntervals.end(), nodesDistributionWeights.begin());
 

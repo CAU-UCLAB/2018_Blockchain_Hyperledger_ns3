@@ -33,6 +33,7 @@ namespace ns3 {
         m_internetSpeeds = internetSpeeds;
         m_nodeStats = stats;
         m_protocolType = STANDARD_PROTOCOL;
+        m_committerType = COMMITTER;
 
         m_factory.Set("Protocol", StringValue(m_protocol));
         m_factory.Set("Local", AddressValue(m_address));
@@ -80,6 +81,7 @@ namespace ns3 {
         app->SetNodeInternetSpeeds(m_internetSpeeds);
         app->SetNodeStats(m_nodeStats);
         app->SetProtocolType(m_protocolType);
+        app->SetCommitterType(m_committerType);
 
         node->AddApplication(app);
 
@@ -122,7 +124,10 @@ namespace ns3 {
         m_protocolType = protocolType;
     }
 
-
-
+    void
+    BlockchainNodeHelper::SetCommitterType(enum CommitterType cType)
+    {
+        m_committerType = cType;
+    }
 
 }

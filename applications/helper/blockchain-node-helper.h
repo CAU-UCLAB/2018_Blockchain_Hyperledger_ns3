@@ -36,6 +36,7 @@ namespace ns3
             void SetNodeInternetSpeeds(nodeInternetSpeed &internetSpeeds);
             void SetNodeStats(nodeStatistics *nodeStats);
             void SetProtocolType(enum ProtocolType protocolType);
+            void SetCommitterType(enum CommitterType cType);
 
         protected:
 
@@ -49,7 +50,8 @@ namespace ns3
             std::map<Ipv4Address, double>   m_peersUploadSpeeds;
             nodeInternetSpeed               m_internetSpeeds;
             nodeStatistics                  *m_nodeStats;
-            enum ProtocolType               m_protocolType;          
+            enum ProtocolType               m_protocolType;
+            enum CommitterType              m_committerType;          
 
     };
 
