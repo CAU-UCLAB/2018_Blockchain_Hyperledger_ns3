@@ -139,7 +139,7 @@ namespace ns3 {
             
             bool HasTransaction(int nodeId, int transId);
 
-            bool HasTransactionAndExecuted(int nodeId, int transId, int transExecution);
+            bool HasReplyTransaction(int nodeId, int transId, int transExecution);
 
             bool HasTransactionAndValidated(int nodeId, int transId);
 
@@ -250,7 +250,8 @@ namespace ns3 {
             std::vector<Transaction>                        m_transaction;
             std::vector<Transaction>                        m_notValidatedTransaction;
             std::vector<Transaction>                        m_replyTransaction;
-            std::vector<Transaction>                        m_notExecutedTransaction;            
+            std::vector<Transaction>                        m_executedTransaction;
+            std::vector<Transaction>                        m_waitingEndorsers;            
             std::vector<Ipv4Address>                        m_peersAddresses;                   // The address of peers
             std::map<Ipv4Address, double>                   m_peersDownloadSpeeds;              // The peerDownloadSpeeds of channels
             std::map<Ipv4Address, double>                   m_peersUploadSpeeds;                // The peerUploadSpeeds of channels
