@@ -11,14 +11,14 @@ namespace ns3 {
     enum Messages
     {
         INV,            //0
-        TRANSACTION,    //1
+        REQUEST_TRANS,      //1
         GET_HEADERS,    //2
         HEADERS,        //3
         GET_DATA,       //4
         BLOCK,          //5    
         NO_MESSAGE,     //6
         REPLY_TRANS,    //7
-        EXECUTED_TRANS,  //8
+        MSG_TRANS,  //8
         RESULT_TRANS,   //9
     };
 

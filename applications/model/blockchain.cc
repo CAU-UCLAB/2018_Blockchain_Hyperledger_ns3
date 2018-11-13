@@ -658,14 +658,14 @@ namespace ns3{
         switch(m)
         {
             case INV: return "INV";
-            case TRANSACTION: return "TRANSACTION";
+            case REQUEST_TRANS: return "REQUEST_TRANS";
             case GET_HEADERS: return "GET_HEADERS";
             case HEADERS: return "HEADERS";
             case GET_DATA: return "GET_DATA";
             case BLOCK: return "BLOCK";
             case NO_MESSAGE: return "NO_MESSAGE";
             case REPLY_TRANS: return "REPLY_TRANS";
-            case EXECUTED_TRANS: return "EXECUTED_TRANS";
+            case MSG_TRANS: return "MSG_TRANS";
             case RESULT_TRANS: return "RESULT_TRANS";
         }
 
