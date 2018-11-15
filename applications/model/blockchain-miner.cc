@@ -306,7 +306,7 @@ namespace ns3 {
             //std::cout<<"m_nextBlockTime(2) : " << m_nextBlockTime <<"\n";
             m_nextMiningEvent = Simulator::Schedule(Seconds(m_nextBlockTime), &BlockchainMiner::MineBlock, this);
             */
-            m_nextBlockTime = 13;
+            m_nextBlockTime = 0.5;
             m_nextMiningEvent = Simulator::Schedule(Seconds(m_nextBlockTime), &BlockchainMiner::MineBlock, this);
         }
     }

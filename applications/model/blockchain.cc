@@ -677,7 +677,7 @@ namespace ns3{
         switch(m)
         {
             case NORMAL_MINER: return "ETHEREUM";
-            case ORDER: return "ORDER";
+            case HYPERLEDGER_MINER: return "HYPERLEDGER";
         }
 
         return 0;

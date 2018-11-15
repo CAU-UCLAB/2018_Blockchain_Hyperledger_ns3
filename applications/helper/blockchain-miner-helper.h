@@ -28,6 +28,8 @@ namespace ns3{
             double              m_blockGenBinSize;
             double              m_blockGenParameter;
             double              m_averageBlockGenIntervalSeconds;
+            enum CommitterType  m_committerType;
+
         
 
     };

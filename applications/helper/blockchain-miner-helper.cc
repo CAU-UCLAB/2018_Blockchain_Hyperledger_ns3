@@ -20,6 +20,7 @@ namespace ns3 {
         m_noMiners = noMiners;
         m_hashRate = hashRate;
         m_averageBlockGenIntervalSeconds = averageBlockGenIntervalSeconds;
+        m_committerType = ORDER;
 
         m_factory.Set("NumberOfMiners", UintegerValue(m_noMiners));
         m_factory.Set("HashRate" , DoubleValue(m_hashRate));
@@ -40,15 +41,27 @@ namespace ns3 {
                 app->SetNodeInternetSpeeds(m_internetSpeeds);
                 app->SetNodeStats(m_nodeStats);
                 app->SetProtocolType(m_protocolType);
+                app->SetCommitterType(m_committerType);
                 
                 node->AddApplication(app);
                 
                 return app;
                 //break;
             }
-            case ORDER:
+            case HYPERLEDGER_MINER:
             {
-
+                Ptr<BlockchainMiner> app = m_factory.Create<BlockchainMiner>();
+                app->SetPeersAddresses(m_peersAddresses);
+                app->SetPeersDownloadSpeeds(m_peersDownloadSpeeds);
+                app->SetPeersUploadSpeeds(m_peersUploadSpeeds);
+                app->SetNodeInternetSpeeds(m_internetSpeeds);
+                app->SetNodeStats(m_nodeStats);
+                app->SetProtocolType(m_protocolType);
+                app->SetCommitterType(m_committerType);
+                
+                node->AddApplication(app);
+                
+                return app;
             }
         }
 
@@ -74,7 +87,7 @@ namespace ns3 {
                 SetFactoryAttributes();
                 break;
             }
-            case ORDER:
+            case HYPERLEDGER_MINER:
             {
                 m_factory.SetTypeId("ns3::BlockchainMiner");
                 SetFactoryAttributes();

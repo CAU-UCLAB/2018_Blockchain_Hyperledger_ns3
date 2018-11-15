@@ -335,81 +335,85 @@ namespace ns3 {
                         case INV:
                         {
                             NS_LOG_INFO("INV");
-                            unsigned int j;
-                            std::vector<std::string>            requestBlocks;
-                            std::vector<std::string>::iterator  block_it;
 
-                            m_nodeStats->invReceivedBytes += m_blockchainMessageHeader + m_countBytes + d["inv"].Size()*m_inventorySizeBytes; 
-                            
-
-                            for(j = 0; j < d["inv"].Size() ; j++)
+                            if(m_committerType != CLIENT)
                             {
-                                std::string invDelimiter = "/";
-                                std::string parsedInv = d["inv"][j].GetString();
-                                size_t invPos = parsedInv.find(invDelimiter);
-                                EventId timeout;
+                                unsigned int j;
+                                std::vector<std::string>            requestBlocks;
+                                std::vector<std::string>::iterator  block_it;
 
-                                int height = atoi(parsedInv.substr(0, invPos).c_str());
-                                int minerId = atoi(parsedInv.substr(invPos+1, parsedInv.size()).c_str());
+                                m_nodeStats->invReceivedBytes += m_blockchainMessageHeader + m_countBytes + d["inv"].Size()*m_inventorySizeBytes; 
+                                
 
-                                if(m_blockchain.HasBlock(height, minerId) || m_blockchain.IsOrphan(height, minerId) || ReceivedButNotValidated(parsedInv))
+                                for(j = 0; j < d["inv"].Size() ; j++)
                                 {
-                                    /*std::cout<<"INV : Blockchain node " << GetNode()->GetId()
-                                                << " has already received the block with height = "
-                                                << height << " and minerId = " << minerId << "\n";*/
-                                    NS_LOG_INFO("INV : Blockchain node " << GetNode()->GetId()
-                                                << " has already received the block with height = "
-                                                << height << " and minerId = " << minerId);
-                                }
-                                else
-                                {
-                                    /*std::cout<<"INV : Blockchain node " << GetNode()->GetId()
-                                                << " does not have the block with height = "
-                                                << height << " and minerId = " << minerId << "\n";*/
-                                    NS_LOG_INFO("INV : Blockchain node " << GetNode()->GetId()
-                                                << " does not have the block with height = "
-                                                << height << " and minerId = " << minerId);
+                                    std::string invDelimiter = "/";
+                                    std::string parsedInv = d["inv"][j].GetString();
+                                    size_t invPos = parsedInv.find(invDelimiter);
+                                    EventId timeout;
 
-                                    /*
-                                     * check if we have already requested the block
-                                     */
-                                    if(m_invTimeouts.find(parsedInv) == m_invTimeouts.end())
+                                    int height = atoi(parsedInv.substr(0, invPos).c_str());
+                                    int minerId = atoi(parsedInv.substr(invPos+1, parsedInv.size()).c_str());
+
+                                    if(m_blockchain.HasBlock(height, minerId) || m_blockchain.IsOrphan(height, minerId) || ReceivedButNotValidated(parsedInv))
                                     {
-                                        /*std::cout<<"INV: Blockchain node " << GetNode()->GetId()
-                                                    << " has not requested the block yet" << "\n";*/
-                                        NS_LOG_INFO("INV: Blockchain node " << GetNode()->GetId()
-                                                    << " has not requested the block yet");
-                                        requestBlocks.push_back(parsedInv);
-                                        timeout = Simulator::Schedule(m_invTimeoutMinutes, &BlockchainNode::InvTimeoutExpired, this, parsedInv);
-                                        m_invTimeouts[parsedInv] = timeout;
+                                        /*std::cout<<"INV : Blockchain node " << GetNode()->GetId()
+                                                    << " has already received the block with height = "
+                                                    << height << " and minerId = " << minerId << "\n";*/
+                                        NS_LOG_INFO("INV : Blockchain node " << GetNode()->GetId()
+                                                    << " has already received the block with height = "
+                                                    << height << " and minerId = " << minerId);
                                     }
                                     else
                                     {
+                                        /*std::cout<<"INV : Blockchain node " << GetNode()->GetId()
+                                                    << " does not have the block with height = "
+                                                    << height << " and minerId = " << minerId << "\n";*/
                                         NS_LOG_INFO("INV : Blockchain node " << GetNode()->GetId()
-                                                    << " has already requested the block");
+                                                    << " does not have the block with height = "
+                                                    << height << " and minerId = " << minerId);
+
+                                        /*
+                                        * check if we have already requested the block
+                                        */
+                                        if(m_invTimeouts.find(parsedInv) == m_invTimeouts.end())
+                                        {
+                                            /*std::cout<<"INV: Blockchain node " << GetNode()->GetId()
+                                                        << " has not requested the block yet" << "\n";*/
+                                            NS_LOG_INFO("INV: Blockchain node " << GetNode()->GetId()
+                                                        << " has not requested the block yet");
+                                            requestBlocks.push_back(parsedInv);
+                                            timeout = Simulator::Schedule(m_invTimeoutMinutes, &BlockchainNode::InvTimeoutExpired, this, parsedInv);
+                                            m_invTimeouts[parsedInv] = timeout;
+                                        }
+                                        else
+                                        {
+                                            NS_LOG_INFO("INV : Blockchain node " << GetNode()->GetId()
+                                                        << " has already requested the block");
+                                        }
+
+                                        m_queueInv[parsedInv].push_back(from);
+                                    }
+                                }
+
+                                
+                                if(!requestBlocks.empty())
+                                {
+                                    rapidjson::Value value;
+                                    rapidjson::Value array(rapidjson::kArrayType);
+                                    d.RemoveMember("inv");
+
+                                    for(block_it = requestBlocks.begin(); block_it < requestBlocks.end(); block_it++)
+                                    {
+                                        value.SetString(block_it->c_str(), block_it->size(), d.GetAllocator());
+                                        array.PushBack(value, d.GetAllocator());
                                     }
 
-                                    m_queueInv[parsedInv].push_back(from);
+                                    d.AddMember("blocks", array, d.GetAllocator());
+
+                                    SendMessage(INV, GET_HEADERS, d, from );
+                                    SendMessage(INV, GET_DATA, d, from );
                                 }
-                            }
-
-                            
-                            if(!requestBlocks.empty())
-                            {
-                                rapidjson::Value value;
-                                rapidjson::Value array(rapidjson::kArrayType);
-                                d.RemoveMember("inv");
-
-                                for(block_it = requestBlocks.begin(); block_it < requestBlocks.end(); block_it++)
-                                {
-                                    value.SetString(block_it->c_str(), block_it->size(), d.GetAllocator());
-                                    array.PushBack(value, d.GetAllocator());
-                                }
-
-                                d.AddMember("blocks", array, d.GetAllocator());
-
-                                SendMessage(INV, GET_HEADERS, d, from );
-                                SendMessage(INV, GET_DATA, d, from );
                             }
                             
                             break;
@@ -417,51 +421,62 @@ namespace ns3 {
                         case REQUEST_TRANS:
                         {
                             NS_LOG_INFO("REQUEST_TRANS");
-                            //std::cout<< GetNode()->GetId() << "received transaction\n";
-                            unsigned int j;
-                            std::vector<Transaction>            requestTransactions;
-                            std::vector<Transaction>::iterator  trans_it;
-
-                            m_nodeStats->getDataReceivedBytes += m_blockchainMessageHeader + m_countBytes + d["transactions"].Size()*m_inventorySizeBytes;
-
-                            for(j = 0; j < d["transactions"].Size(); j++)
-                            {
-                                int nodeId = d["transactions"][j]["nodeId"].GetInt();
-                                int transId = d["transactions"][j]["transId"].GetInt();
-                                int timestamp = d["transactions"][j]["timestamp"].GetDouble();
-                                bool transValidation = d["transactions"][j]["validation"].GetBool();
-                                int transExecution = d["transactions"][j]["execution"].GetInt();
+                            //std::cout<<"Type: " << m_protocolType <<" Node Id: "<< GetNode()->GetId() << " received request_transaction\n";
                             
-                                if(HasTransaction(nodeId, transId))
-                                {
-                                    NS_LOG_INFO("REQUEST_TRANS: Blockchain node " << GetNode()->GetId()
-                                                << " has the transaction nodeID: " << nodeId
-                                                << " and transId = " << transId);
-                                }
-                                else
-                                {
-                                    Transaction newTrans(nodeId, transId, timestamp);
-                                    m_transaction.push_back(newTrans);
-                                    //m_notValidatedTransaction.push_back(newTrans);
+                            if(m_committerType != CLIENT)
+                            {
+                                unsigned int j;
+                                std::vector<Transaction>            requestTransactions;
+                                std::vector<Transaction>::iterator  trans_it;
 
-                                    if(m_committerType == ENDORSER)
+                                m_nodeStats->getDataReceivedBytes += m_blockchainMessageHeader + m_countBytes + d["transactions"].Size()*m_inventorySizeBytes;
+
+                                for(j = 0; j < d["transactions"].Size(); j++)
+                                {
+                                    int nodeId = d["transactions"][j]["nodeId"].GetInt();
+                                    int transId = d["transactions"][j]["transId"].GetInt();
+                                    double timestamp = d["transactions"][j]["timestamp"].GetDouble();
+                                    bool transValidation = d["transactions"][j]["validation"].GetBool();
+                                    int transExecution = d["transactions"][j]["execution"].GetInt();
+                                
+                                    if(HasTransaction(nodeId, transId))
                                     {
-                                        newTrans.SetExecution(GetNode()->GetId());
-                                        ExecuteTransaction(newTrans, InetSocketAddress::ConvertFrom(from).GetIpv4());
+                                        NS_LOG_INFO("REQUEST_TRANS: Blockchain node " << GetNode()->GetId()
+                                                    << " has the transaction nodeID: " << nodeId
+                                                    << " and transId = " << transId);
+                                        //std::cout<<"Type: " << m_protocolType <<" Node Id: "<< GetNode()->GetId() << " alread received request transaction\n";
                                     }
                                     else
                                     {
-                                        AdvertiseNewTransaction(newTrans, REQUEST_TRANS, InetSocketAddress::ConvertFrom(from).GetIpv4());
+                                        Transaction newTrans(nodeId, transId, timestamp);
+                                        m_transaction.push_back(newTrans);
+                                        //m_notValidatedTransaction.push_back(newTrans);
+
+                                        if(m_committerType == ENDORSER)
+                                        {
+                                            newTrans.SetExecution(GetNode()->GetId());
+                                            ExecuteTransaction(newTrans, InetSocketAddress::ConvertFrom(from).GetIpv4());
+                                            //std::cout<<"Type: ENDOESER " <<" Node Id: "<< GetNode()->GetId() << " excute transaction\n";
+                                        }
+                                        else
+                                        {
+                                            AdvertiseNewTransaction(newTrans, REQUEST_TRANS, InetSocketAddress::ConvertFrom(from).GetIpv4());
+                                            //std::cout<<"Type: " << m_protocolType <<" Node Id: "<< GetNode()->GetId() <<" forwarding request transaction\n";
+                                        }
                                     }
+                                    
                                 }
-                                
                             }
+                            
 
                             break;
                         }
                         case REPLY_TRANS:
                         {
                             NS_LOG_INFO("REPLY_TRANS");
+
+                            //std::cout<<"Type: " << m_protocolType <<" Node Id: "<< GetNode()->GetId() << " received reply_transaction\n";
+
                             unsigned int j;
                             std::vector<Transaction>::iterator  trans_it;
 
@@ -471,7 +486,7 @@ namespace ns3 {
                             {
                                 int nodeId = d["transactions"][j]["nodeId"].GetInt();
                                 int transId = d["transactions"][j]["transId"].GetInt();
-                                int timestamp = d["transactions"][j]["timestamp"].GetDouble();
+                                double timestamp = d["transactions"][j]["timestamp"].GetDouble();
                                 bool transValidation = d["transactions"][j]["validation"].GetBool();
                                 int transExecution = d["transactions"][j]["execution"].GetInt();
 
@@ -540,13 +555,12 @@ namespace ns3 {
                                             break;
                                         }
                                     }
-                                    
+
                                     if(it_tran == m_waitingEndorsers.end())
                                     {
                                         m_waitingEndorsers.push_back(newTrans);
                                     }
 
-                                    
 
                                     if(m_waitingEndorsers.size() == m_numberofEndorsers)
                                     {
@@ -572,49 +586,57 @@ namespace ns3 {
                         case MSG_TRANS:
                         {
                             NS_LOG_INFO("MSG_TRANS");
-                            unsigned int j;
-                            std::vector<Transaction>::iterator  trans_it;
 
-                            m_nodeStats->getDataReceivedBytes += m_blockchainMessageHeader + m_countBytes + d["transactions"].Size()*m_inventorySizeBytes;
+                            //std::cout<<"Type: " << m_protocolType <<" Node Id: "<< GetNode()->GetId() << " received MSG_transaction\n";
 
-                            for(j = 0; j < d["transactions"].Size(); j++)
+                            if(m_committerType != CLIENT)
                             {
-                                int nodeId = d["transactions"][j]["nodeId"].GetInt();
-                                int transId = d["transactions"][j]["transId"].GetInt();
-                                int timestamp = d["transactions"][j]["timestamp"].GetDouble();
-                                bool transValidation = d["transactions"][j]["validation"].GetBool();
-                                int transExecution = d["transactions"][j]["execution"].GetInt();
+                                unsigned int j;
+                                std::vector<Transaction>::iterator  trans_it;
 
-                                if(HasMessageTransaction(nodeId, transId))
+                                m_nodeStats->getDataReceivedBytes += m_blockchainMessageHeader + m_countBytes + d["transactions"].Size()*m_inventorySizeBytes;
+
+                                for(j = 0; j < d["transactions"].Size(); j++)
                                 {
-                                    NS_LOG_INFO("MSG_TRANS: Blockchain node " << GetNode()->GetId()
-                                                << " has transaction which is already executed and not validated nodeID: " << nodeId
-                                                << " and transId = " << transId);
-                                }
-                                else
-                                {
-                                    
-                                    Transaction newTrans(nodeId, transId, timestamp);
-                                    newTrans.SetExecution(transExecution);
-                                    m_msgTransaction.push_back(newTrans);
-                                    
-                                    if(m_isMiner != true)
+                                    int nodeId = d["transactions"][j]["nodeId"].GetInt();
+                                    int transId = d["transactions"][j]["transId"].GetInt();
+                                    double timestamp = d["transactions"][j]["timestamp"].GetDouble();
+                                    bool transValidation = d["transactions"][j]["validation"].GetBool();
+                                    int transExecution = d["transactions"][j]["execution"].GetInt();
+
+                                    if(HasMessageTransaction(nodeId, transId))
                                     {
-                                        AdvertiseNewTransaction(newTrans, MSG_TRANS, InetSocketAddress::ConvertFrom(from).GetIpv4());
+                                        NS_LOG_INFO("MSG_TRANS: Blockchain node " << GetNode()->GetId()
+                                                    << " has transaction which is already executed and not validated nodeID: " << nodeId
+                                                    << " and transId = " << transId);
                                     }
                                     else
                                     {
-                                        m_notValidatedTransaction.push_back(newTrans);
+                                        
+                                        Transaction newTrans(nodeId, transId, timestamp);
+                                        newTrans.SetExecution(transExecution);
+                                        m_msgTransaction.push_back(newTrans);
+                                        
+                                        if(m_isMiner != true)
+                                        {
+                                            AdvertiseNewTransaction(newTrans, MSG_TRANS, InetSocketAddress::ConvertFrom(from).GetIpv4());
+                                        }
+                                        else
+                                        {
+                                            m_notValidatedTransaction.push_back(newTrans);
+                                        }
                                     }
+
+
                                 }
-
-
                             }
+                            
                             break;
                         }
                         case RESULT_TRANS:
                         {
                             NS_LOG_INFO("RESULT_TRANS");
+                            //std::cout<<"Type: " << m_protocolType <<" Node Id: "<< GetNode()->GetId() << " received result_transaction\n";
                             unsigned int j;
                             std::vector<Transaction>::iterator  trans_it;
 
@@ -624,7 +646,7 @@ namespace ns3 {
                             {
                                 int nodeId = d["transactions"][j]["nodeId"].GetInt();
                                 int transId = d["transactions"][j]["transId"].GetInt();
-                                int timestamp = d["transactions"][j]["timestamp"].GetDouble();
+                                double timestamp = d["transactions"][j]["timestamp"].GetDouble();
                                 bool transValidation = d["transactions"][j]["validation"].GetBool();
                                 int transExecution = d["transactions"][j]["execution"].GetInt();
 
@@ -647,6 +669,7 @@ namespace ns3 {
                                     else
                                     {
                                         //Measure received time
+                                        std::cout<<"latency : "<<Simulator::Now().GetSeconds() - timestamp <<" , CLIENT node "<<GetNode()->GetId()<< " confirmed that transactions had succeeded\n";
                                     }
                                 }
                             }
@@ -654,94 +677,100 @@ namespace ns3 {
                         }
                         case GET_HEADERS:
                         {
-                            unsigned int j;
-                            std::vector<Block>              requestHeaders;
-                            std::vector<Block>::iterator    block_it;
+                            
+                            NS_LOG_INFO("GET_HEADERS");
 
-                            m_nodeStats->getHeadersReceivedBytes += m_blockchainMessageHeader + m_getHeaderSizeBytes;
-
-                            for(j =0 ; j < d["blocks"].Size(); j++)
+                            if(m_committerType != CLIENT)
                             {
-                                std::string invDelimiter = "/";
-                                std::string blockHash = d["blocks"][j].GetString();
-                                size_t      invPos = blockHash.find(invDelimiter);
+                                unsigned int j;
+                                std::vector<Block>              requestHeaders;
+                                std::vector<Block>::iterator    block_it;
 
-                                int height = atoi(blockHash.substr(0, invPos).c_str());
-                                int minerId = atoi(blockHash.substr(invPos+1, blockHash.size()).c_str());
+                                m_nodeStats->getHeadersReceivedBytes += m_blockchainMessageHeader + m_getHeaderSizeBytes;
 
-                                if(m_blockchain.HasBlock(height, minerId) || m_blockchain.IsOrphan(height, minerId))
+                                for(j =0 ; j < d["blocks"].Size(); j++)
                                 {
-                                    /*std::cout<<"GET_HEADERS: Blockchain node " << GetNode()->GetId()
-                                                << " has the block with height = " << height
-                                                << " and minerId = " << minerId << "\n";*/
-                                    
-                                    NS_LOG_INFO("GET_HEADERS: Blockchain node " << GetNode()->GetId()
-                                                << " has the block with height = " << height
-                                                << " and minerId = " << minerId);
-                                    Block newBlock(m_blockchain.ReturnBlock(height, minerId));
-                                    requestHeaders.push_back(newBlock);
+                                    std::string invDelimiter = "/";
+                                    std::string blockHash = d["blocks"][j].GetString();
+                                    size_t      invPos = blockHash.find(invDelimiter);
 
-                                } 
-                                else if (ReceivedButNotValidated(blockHash))
-                                {
-                                    /*std::cout<<"GET_HEADERS: Blockchain node " << GetNode()->GetId()
-                                                << " has received but not yet validated the block with height = "
-                                                << height << " and minerId = " << minerId << "\n";*/
-                                    
-                                    NS_LOG_INFO("GET_HEADERS: Blockchain node " << GetNode()->GetId()
-                                                << " has received but not yet validated the block with height = "
-                                                << height << " and minerId = " << minerId);
-                                    requestHeaders.push_back(m_receivedNotValidated[blockHash]);
-                                }
-                                else
-                                {
-                                    NS_LOG_INFO("GET_HEADERS: Blockchain node " << GetNode()->GetId()
-                                                << " does not have the full block with height = "
-                                                << height << " and minerId = " << minerId);
-                                }
-                            }
+                                    int height = atoi(blockHash.substr(0, invPos).c_str());
+                                    int minerId = atoi(blockHash.substr(invPos+1, blockHash.size()).c_str());
 
-                            if(!requestHeaders.empty())
-                            {
-                                rapidjson::Value value;
-                                rapidjson::Value array(rapidjson::kArrayType);
+                                    if(m_blockchain.HasBlock(height, minerId) || m_blockchain.IsOrphan(height, minerId))
+                                    {
+                                        /*std::cout<<"GET_HEADERS: Blockchain node " << GetNode()->GetId()
+                                                    << " has the block with height = " << height
+                                                    << " and minerId = " << minerId << "\n";*/
+                                        
+                                        NS_LOG_INFO("GET_HEADERS: Blockchain node " << GetNode()->GetId()
+                                                    << " has the block with height = " << height
+                                                    << " and minerId = " << minerId);
+                                        Block newBlock(m_blockchain.ReturnBlock(height, minerId));
+                                        requestHeaders.push_back(newBlock);
 
-                                d.RemoveMember("blocks");
-
-                                for(block_it = requestHeaders.begin() ; block_it < requestHeaders.end(); block_it++)
-                                {
-                                    rapidjson::Value blockInfo(rapidjson::kObjectType);
-                                    //NS_LOG_INFO("In requestHeaders " << *block_it);
-
-                                    value = block_it->GetBlockHeight();
-                                    blockInfo.AddMember("height", value, d.GetAllocator());
-                                    
-                                    value = block_it->GetMinerId();
-                                    blockInfo.AddMember("minerId", value, d.GetAllocator());
-
-                                    value = block_it->GetNonce();
-                                    blockInfo.AddMember("nonce", value, d.GetAllocator());
-
-                                    value = block_it->GetParentBlockMinerId();
-                                    blockInfo.AddMember("parentBlockMinerId", value, d.GetAllocator());
-
-                                    value = block_it->GetBlockSizeBytes();
-                                    blockInfo.AddMember("size", value, d.GetAllocator());
-
-                                    value = block_it->GetTimeStamp();
-                                    blockInfo.AddMember("timeStamp", value, d.GetAllocator());
-
-                                    value = block_it->GetTimeReceived();
-                                    blockInfo.AddMember("timeReceived", value, d.GetAllocator());
-
-                                    array.PushBack(blockInfo, d.GetAllocator());
-                                
+                                    } 
+                                    else if (ReceivedButNotValidated(blockHash))
+                                    {
+                                        /*std::cout<<"GET_HEADERS: Blockchain node " << GetNode()->GetId()
+                                                    << " has received but not yet validated the block with height = "
+                                                    << height << " and minerId = " << minerId << "\n";*/
+                                        
+                                        NS_LOG_INFO("GET_HEADERS: Blockchain node " << GetNode()->GetId()
+                                                    << " has received but not yet validated the block with height = "
+                                                    << height << " and minerId = " << minerId);
+                                        requestHeaders.push_back(m_receivedNotValidated[blockHash]);
+                                    }
+                                    else
+                                    {
+                                        NS_LOG_INFO("GET_HEADERS: Blockchain node " << GetNode()->GetId()
+                                                    << " does not have the full block with height = "
+                                                    << height << " and minerId = " << minerId);
+                                    }
                                 }
 
-                                d.AddMember("blocks", array, d.GetAllocator());
+                                if(!requestHeaders.empty())
+                                {
+                                    rapidjson::Value value;
+                                    rapidjson::Value array(rapidjson::kArrayType);
 
-                                SendMessage(GET_HEADERS, HEADERS, d, from);
+                                    d.RemoveMember("blocks");
 
+                                    for(block_it = requestHeaders.begin() ; block_it < requestHeaders.end(); block_it++)
+                                    {
+                                        rapidjson::Value blockInfo(rapidjson::kObjectType);
+                                        //NS_LOG_INFO("In requestHeaders " << *block_it);
+
+                                        value = block_it->GetBlockHeight();
+                                        blockInfo.AddMember("height", value, d.GetAllocator());
+                                        
+                                        value = block_it->GetMinerId();
+                                        blockInfo.AddMember("minerId", value, d.GetAllocator());
+
+                                        value = block_it->GetNonce();
+                                        blockInfo.AddMember("nonce", value, d.GetAllocator());
+
+                                        value = block_it->GetParentBlockMinerId();
+                                        blockInfo.AddMember("parentBlockMinerId", value, d.GetAllocator());
+
+                                        value = block_it->GetBlockSizeBytes();
+                                        blockInfo.AddMember("size", value, d.GetAllocator());
+
+                                        value = block_it->GetTimeStamp();
+                                        blockInfo.AddMember("timeStamp", value, d.GetAllocator());
+
+                                        value = block_it->GetTimeReceived();
+                                        blockInfo.AddMember("timeReceived", value, d.GetAllocator());
+
+                                        array.PushBack(blockInfo, d.GetAllocator());
+                                    
+                                    }
+
+                                    d.AddMember("blocks", array, d.GetAllocator());
+
+                                    SendMessage(GET_HEADERS, HEADERS, d, from);
+
+                                }
                             }
 
                             break;
@@ -751,247 +780,255 @@ namespace ns3 {
                             
                             NS_LOG_INFO("HEADERS");
 
-                            std::vector<std::string>        requestHeaders;
-                            std::vector<std::string>        requestBlocks;
-                            std::vector<std::string>::iterator  block_it;
-                            unsigned int j;
-
-                            m_nodeStats->headersReceivedBytes += m_blockchainMessageHeader + m_countBytes + d["blocks"].Size()*m_headersSizeBytes;
-
-                            for(j = 0; j <d["blocks"].Size(); j++)
+                            if(m_committerType != CLIENT)
                             {
-                                int parentHeight = d["blocks"][j]["height"].GetInt() - 1;
-                                int parentMinerId = d["blocks"][j]["parentBlockMinerId"].GetInt();
-                                int height = d["blocks"][j]["height"].GetInt();
-                                int minerId = d["blocks"][j]["minerId"].GetInt();
+                                std::vector<std::string>        requestHeaders;
+                                std::vector<std::string>        requestBlocks;
+                                std::vector<std::string>::iterator  block_it;
+                                unsigned int j;
 
-                                EventId         timeout;
-                                std::stringstream   stringStream;
-                                std::string         blockHash;
-                                std::string         parentBlockHash;
+                                m_nodeStats->headersReceivedBytes += m_blockchainMessageHeader + m_countBytes + d["blocks"].Size()*m_headersSizeBytes;
 
-                                stringStream << height << "/" << minerId;
-                                blockHash = stringStream.str();
-                                Block newBlockHeaders(d["blocks"][j]["height"].GetInt(), d["blocks"][j]["minerId"].GetInt(), d["blocks"][j]["nonce"].GetInt()
-                                                    , d["blocks"][j]["parentBlockMinerId"].GetInt(), d["blocks"][j]["size"].GetInt()
-                                                    , d["blocks"][j]["timeStamp"].GetDouble(), Simulator::Now().GetSeconds(), InetSocketAddress::ConvertFrom(from).GetIpv4());
-
-                                m_onlyHeadersReceived[blockHash] = Block(d["blocks"][j]["height"].GetInt(), d["blocks"][j]["minerId"].GetInt(), d["blocks"][j]["nonce"].GetInt()
-                                                                        , d["blocks"][j]["parentBlockMinerId"].GetInt(), d["blocks"][j]["size"].GetInt()
-                                                                        , d["blocks"][j]["timeStamp"].GetDouble(), Simulator::Now().GetSeconds(), InetSocketAddress::ConvertFrom(from).GetIpv4());
-
-                                stringStream.clear();
-                                stringStream.str("");
-
-                                stringStream << parentHeight << "/" << parentMinerId;
-                                parentBlockHash = stringStream.str();
-
-                                if (!m_blockchain.HasBlock(parentHeight, parentMinerId) && !m_blockchain.IsOrphan(parentHeight, parentMinerId) && !ReceivedButNotValidated(parentBlockHash))
+                                for(j = 0; j <d["blocks"].Size(); j++)
                                 {
-                                    /*std::cout<<"The Block with height  = " << d["blocks"][j]["height"].GetInt()
-                                                << " and minerID = " << d["blocks"][j]["minerId"].GetInt()
-                                                << " is an orphan\n" << "\n";*/
-                                    
-                                    NS_LOG_INFO("The Block with height  = " << d["blocks"][j]["height"].GetInt()
-                                                << " and minerID = " << d["blocks"][j]["minerId"].GetInt()
-                                                << " is an orphan\n");
-                                    
-                                    if(m_invTimeouts.find(parentBlockHash) == m_invTimeouts.end())
+                                    int parentHeight = d["blocks"][j]["height"].GetInt() - 1;
+                                    int parentMinerId = d["blocks"][j]["parentBlockMinerId"].GetInt();
+                                    int height = d["blocks"][j]["height"].GetInt();
+                                    int minerId = d["blocks"][j]["minerId"].GetInt();
+
+                                    EventId         timeout;
+                                    std::stringstream   stringStream;
+                                    std::string         blockHash;
+                                    std::string         parentBlockHash;
+
+                                    stringStream << height << "/" << minerId;
+                                    blockHash = stringStream.str();
+                                    Block newBlockHeaders(d["blocks"][j]["height"].GetInt(), d["blocks"][j]["minerId"].GetInt(), d["blocks"][j]["nonce"].GetInt()
+                                                        , d["blocks"][j]["parentBlockMinerId"].GetInt(), d["blocks"][j]["size"].GetInt()
+                                                        , d["blocks"][j]["timeStamp"].GetDouble(), Simulator::Now().GetSeconds(), InetSocketAddress::ConvertFrom(from).GetIpv4());
+
+                                    m_onlyHeadersReceived[blockHash] = Block(d["blocks"][j]["height"].GetInt(), d["blocks"][j]["minerId"].GetInt(), d["blocks"][j]["nonce"].GetInt()
+                                                                            , d["blocks"][j]["parentBlockMinerId"].GetInt(), d["blocks"][j]["size"].GetInt()
+                                                                            , d["blocks"][j]["timeStamp"].GetDouble(), Simulator::Now().GetSeconds(), InetSocketAddress::ConvertFrom(from).GetIpv4());
+
+                                    stringStream.clear();
+                                    stringStream.str("");
+
+                                    stringStream << parentHeight << "/" << parentMinerId;
+                                    parentBlockHash = stringStream.str();
+
+                                    if (!m_blockchain.HasBlock(parentHeight, parentMinerId) && !m_blockchain.IsOrphan(parentHeight, parentMinerId) && !ReceivedButNotValidated(parentBlockHash))
                                     {
-                                        NS_LOG_INFO("HEADERS : Blockchain node " << GetNode()->GetId()
-                                                    << " has not requested its parent block yet");
-                                        if(!OnlyHeadersReceived(parentBlockHash))
+                                        /*std::cout<<"The Block with height  = " << d["blocks"][j]["height"].GetInt()
+                                                    << " and minerID = " << d["blocks"][j]["minerId"].GetInt()
+                                                    << " is an orphan\n" << "\n";*/
+                                        
+                                        NS_LOG_INFO("The Block with height  = " << d["blocks"][j]["height"].GetInt()
+                                                    << " and minerID = " << d["blocks"][j]["minerId"].GetInt()
+                                                    << " is an orphan\n");
+                                        
+                                        if(m_invTimeouts.find(parentBlockHash) == m_invTimeouts.end())
                                         {
-                                            requestHeaders.push_back(parentBlockHash.c_str());
+                                            NS_LOG_INFO("HEADERS : Blockchain node " << GetNode()->GetId()
+                                                        << " has not requested its parent block yet");
+                                            if(!OnlyHeadersReceived(parentBlockHash))
+                                            {
+                                                requestHeaders.push_back(parentBlockHash.c_str());
+                                            }
+                                            timeout = Simulator::Schedule(m_invTimeoutMinutes, &BlockchainNode::InvTimeoutExpired, this, parentBlockHash);
+                                            m_invTimeouts[parentBlockHash] = timeout;
+
                                         }
-                                        timeout = Simulator::Schedule(m_invTimeoutMinutes, &BlockchainNode::InvTimeoutExpired, this, parentBlockHash);
-                                        m_invTimeouts[parentBlockHash] = timeout;
+                                        else
+                                        {
+                                            NS_LOG_INFO("HEADERS: Blockchain node " << GetNode()->GetId()
+                                                        << "has already requested the block");
+                                        }
+
+                                        m_queueInv[parentBlockHash].push_back(from);
 
                                     }
                                     else
                                     {
-                                        NS_LOG_INFO("HEADERS: Blockchain node " << GetNode()->GetId()
-                                                    << "has already requested the block");
+                                        /*std::cout<<"The Block with height = " << d["blocks"][j]["height"].GetInt()
+                                                    << " and minerId = " << d["blocks"][j]["minerId"].GetInt()
+                                                    << " is NOT an orphan\n";*/
+                                        
+                                        NS_LOG_INFO("The Block with height = " << d["blocks"][j]["height"].GetInt()
+                                                    << " and minerId = " << d["blocks"][j]["minerId"].GetInt()
+                                                    << " is NOT an orphan\n");
+                                    }
+                                }
+
+                                if(!requestHeaders.empty())
+                                {
+                                    rapidjson::Value        value;
+                                    rapidjson::Value        array(rapidjson::kArrayType);
+                                    Time                    timeout;
+
+                                    d.RemoveMember("blocks");
+
+                                    for(block_it = requestHeaders.begin(); block_it < requestHeaders.end(); block_it++)
+                                    {
+                                        value.SetString(block_it->c_str(), block_it->size(), d.GetAllocator());
+                                        array.PushBack(value, d.GetAllocator());
                                     }
 
-                                    m_queueInv[parentBlockHash].push_back(from);
+                                    d.AddMember("blocks", array, d.GetAllocator());
 
+                                    SendMessage(HEADERS, GET_HEADERS, d, from);
+                                    SendMessage(HEADERS, GET_DATA, d, from);
                                 }
-                                else
+
+                                if(!requestBlocks.empty())
                                 {
-                                    /*std::cout<<"The Block with height = " << d["blocks"][j]["height"].GetInt()
-                                                << " and minerId = " << d["blocks"][j]["minerId"].GetInt()
-                                                << " is NOT an orphan\n";*/
-                                    
-                                    NS_LOG_INFO("The Block with height = " << d["blocks"][j]["height"].GetInt()
-                                                << " and minerId = " << d["blocks"][j]["minerId"].GetInt()
-                                                << " is NOT an orphan\n");
+                                    rapidjson::Value        value;
+                                    rapidjson::Value        array(rapidjson::kArrayType);
+                                    Time                    timeout;
+
+                                    d.RemoveMember("blocks");
+
+                                    for(block_it = requestBlocks.begin(); block_it < requestBlocks.end(); block_it++)
+                                    {
+                                        value.SetString(block_it->c_str(), block_it->size(), d.GetAllocator());
+                                        array.PushBack(value, d.GetAllocator());
+                                    }
+
+                                    d.AddMember("blocks", array, d.GetAllocator());
+
+                                    SendMessage(HEADERS, GET_DATA, d, from);
                                 }
                             }
 
-                            if(!requestHeaders.empty())
-                            {
-                                rapidjson::Value        value;
-                                rapidjson::Value        array(rapidjson::kArrayType);
-                                Time                    timeout;
-
-                                d.RemoveMember("blocks");
-
-                                for(block_it = requestHeaders.begin(); block_it < requestHeaders.end(); block_it++)
-                                {
-                                    value.SetString(block_it->c_str(), block_it->size(), d.GetAllocator());
-                                    array.PushBack(value, d.GetAllocator());
-                                }
-
-                                d.AddMember("blocks", array, d.GetAllocator());
-
-                                SendMessage(HEADERS, GET_HEADERS, d, from);
-                                SendMessage(HEADERS, GET_DATA, d, from);
-                            }
-
-                            if(!requestBlocks.empty())
-                            {
-                                rapidjson::Value        value;
-                                rapidjson::Value        array(rapidjson::kArrayType);
-                                Time                    timeout;
-
-                                d.RemoveMember("blocks");
-
-                                for(block_it = requestBlocks.begin(); block_it < requestBlocks.end(); block_it++)
-                                {
-                                    value.SetString(block_it->c_str(), block_it->size(), d.GetAllocator());
-                                    array.PushBack(value, d.GetAllocator());
-                                }
-
-                                d.AddMember("blocks", array, d.GetAllocator());
-
-                                SendMessage(HEADERS, GET_DATA, d, from);
-                            }
                             break;
                         }
                         case GET_DATA:
                         {
                             NS_LOG_INFO("GET_DATA");
-                            unsigned int j;
-                            int totalBlockMessageSize = 0;
-                            std::vector<Block>                      requestBlocks;
-                            std::vector<Block>::iterator            block_it;
-                            std::vector<Transaction>::iterator      trans_it;
 
-                            m_nodeStats->getDataReceivedBytes += m_blockchainMessageHeader + m_countBytes + d["blocks"].Size()*m_inventorySizeBytes;
-
-                            for(j=0; j < d["blocks"].Size(); j++)
+                            if(m_committerType != CLIENT)
                             {
-                                std::string     invDelimiter = "/";
-                                std::string     parsedInv = d["blocks"][j].GetString();
-                                size_t          invPos = parsedInv.find(invDelimiter);
+                                unsigned int j;
+                                int totalBlockMessageSize = 0;
+                                std::vector<Block>                      requestBlocks;
+                                std::vector<Block>::iterator            block_it;
+                                std::vector<Transaction>::iterator      trans_it;
 
-                                int height = atoi(parsedInv.substr(0, invPos).c_str());
-                                int minerId = atoi(parsedInv.substr(invPos+1, parsedInv.size()).c_str());
+                                m_nodeStats->getDataReceivedBytes += m_blockchainMessageHeader + m_countBytes + d["blocks"].Size()*m_inventorySizeBytes;
 
-                                if(m_blockchain.HasBlock(height, minerId))
+                                for(j=0; j < d["blocks"].Size(); j++)
                                 {
-                                    NS_LOG_INFO("GET_DATA : Blockchain node " << GetNode()->GetId()
-                                                << " has the block with height = " << height
-                                                << " and minerId = " << minerId);
-                                    Block newBlock(m_blockchain.ReturnBlock(height, minerId));
-                                    requestBlocks.push_back(newBlock);
-                                }
-                                else
-                                {
-                                    NS_LOG_INFO("GET_DATA : Blockchain node " << GetNode()->GetId()
-                                                << " does not have the block with height = " << height
-                                                << " and minerId = " << minerId);
-                                }
+                                    std::string     invDelimiter = "/";
+                                    std::string     parsedInv = d["blocks"][j].GetString();
+                                    size_t          invPos = parsedInv.find(invDelimiter);
 
-                            }
+                                    int height = atoi(parsedInv.substr(0, invPos).c_str());
+                                    int minerId = atoi(parsedInv.substr(invPos+1, parsedInv.size()).c_str());
 
-                            if(!requestBlocks.empty())
-                            {
-                                rapidjson::Value value;
-                                rapidjson::Value array(rapidjson::kArrayType);
-                                rapidjson::Value tranArray(rapidjson::kArrayType);
-                                std::vector<Transaction> requestTransactions;
-
-                                d.RemoveMember("blocks");
-
-                                for(block_it = requestBlocks.begin() ; block_it < requestBlocks.end(); block_it++)
-                                {
-                                    //block_it->PrintAllTransaction();
-                                    requestTransactions = block_it->GetTransactions();
-                                    rapidjson::Value blockInfo(rapidjson::kObjectType);
-                                    
-                                    value = block_it->GetBlockHeight();
-                                    blockInfo.AddMember("height", value, d.GetAllocator());
-                                    
-                                    value = block_it->GetMinerId();
-                                    blockInfo.AddMember("minerId", value, d.GetAllocator());
-
-                                    value = block_it->GetNonce();
-                                    blockInfo.AddMember("nonce", value, d.GetAllocator());
-
-                                    value = block_it->GetParentBlockMinerId();
-                                    blockInfo.AddMember("parentBlockMinerId", value, d.GetAllocator());
-
-                                    value = block_it->GetBlockSizeBytes();
-                                    blockInfo.AddMember("size", value, d.GetAllocator());
-
-                                    value = block_it->GetTimeStamp();
-                                    blockInfo.AddMember("timeStamp", value, d.GetAllocator());
-
-                                    value = block_it->GetTimeReceived();
-                                    blockInfo.AddMember("timeReceived", value, d.GetAllocator());
-
-                                    for(trans_it = requestTransactions.begin(); trans_it < requestTransactions.end(); trans_it++)
+                                    if(m_blockchain.HasBlock(height, minerId))
                                     {
-                                        //std::cout<<"node " << GetNode()->GetId()<<" add transaction\n";
-                                        rapidjson::Value transInfo(rapidjson::kObjectType);
-                                        
-                                        value = trans_it->GetTransNodeId();
-                                        transInfo.AddMember("nodeId", value, d.GetAllocator());
-
-                                        value = trans_it->GetTransId();
-                                        transInfo.AddMember("transId", value, d.GetAllocator());
-
-                                        value = trans_it->GetTransTimeStamp();
-                                        transInfo.AddMember("timestamp", value, d.GetAllocator());
-
-                                        tranArray.PushBack(transInfo, d.GetAllocator());
-
+                                        NS_LOG_INFO("GET_DATA : Blockchain node " << GetNode()->GetId()
+                                                    << " has the block with height = " << height
+                                                    << " and minerId = " << minerId);
+                                        Block newBlock(m_blockchain.ReturnBlock(height, minerId));
+                                        requestBlocks.push_back(newBlock);
                                     }
-                                    blockInfo.AddMember("transactions", tranArray, d.GetAllocator());
+                                    else
+                                    {
+                                        NS_LOG_INFO("GET_DATA : Blockchain node " << GetNode()->GetId()
+                                                    << " does not have the block with height = " << height
+                                                    << " and minerId = " << minerId);
+                                    }
 
-                                    array.PushBack(blockInfo, d.GetAllocator());
                                 }
 
-                                d.AddMember("blocks", array, d.GetAllocator());
-
-                                double sendTime = totalBlockMessageSize/m_uploadSpeed;
-                                double eventTime;
-
-                                if(m_sendBlockTimes.size() == 0 || Simulator::Now().GetSeconds() > m_sendBlockTimes.back())
+                                if(!requestBlocks.empty())
                                 {
-                                    eventTime = 0;
+                                    rapidjson::Value value;
+                                    rapidjson::Value array(rapidjson::kArrayType);
+                                    rapidjson::Value tranArray(rapidjson::kArrayType);
+                                    std::vector<Transaction> requestTransactions;
+
+                                    d.RemoveMember("blocks");
+
+                                    for(block_it = requestBlocks.begin() ; block_it < requestBlocks.end(); block_it++)
+                                    {
+                                        //block_it->PrintAllTransaction();
+                                        requestTransactions = block_it->GetTransactions();
+                                        rapidjson::Value blockInfo(rapidjson::kObjectType);
+                                        
+                                        value = block_it->GetBlockHeight();
+                                        blockInfo.AddMember("height", value, d.GetAllocator());
+                                        
+                                        value = block_it->GetMinerId();
+                                        blockInfo.AddMember("minerId", value, d.GetAllocator());
+
+                                        value = block_it->GetNonce();
+                                        blockInfo.AddMember("nonce", value, d.GetAllocator());
+
+                                        value = block_it->GetParentBlockMinerId();
+                                        blockInfo.AddMember("parentBlockMinerId", value, d.GetAllocator());
+
+                                        value = block_it->GetBlockSizeBytes();
+                                        blockInfo.AddMember("size", value, d.GetAllocator());
+
+                                        value = block_it->GetTimeStamp();
+                                        blockInfo.AddMember("timeStamp", value, d.GetAllocator());
+
+                                        value = block_it->GetTimeReceived();
+                                        blockInfo.AddMember("timeReceived", value, d.GetAllocator());
+
+                                        for(trans_it = requestTransactions.begin(); trans_it < requestTransactions.end(); trans_it++)
+                                        {
+                                            //std::cout<<"node " << GetNode()->GetId()<<" add transaction\n";
+                                            rapidjson::Value transInfo(rapidjson::kObjectType);
+                                            
+                                            value = trans_it->GetTransNodeId();
+                                            transInfo.AddMember("nodeId", value, d.GetAllocator());
+
+                                            value = trans_it->GetTransId();
+                                            transInfo.AddMember("transId", value, d.GetAllocator());
+
+                                            value = trans_it->GetTransTimeStamp();
+                                            transInfo.AddMember("timestamp", value, d.GetAllocator());
+
+                                            tranArray.PushBack(transInfo, d.GetAllocator());
+
+                                        }
+                                        blockInfo.AddMember("transactions", tranArray, d.GetAllocator());
+
+                                        array.PushBack(blockInfo, d.GetAllocator());
+                                    }
+
+                                    d.AddMember("blocks", array, d.GetAllocator());
+
+                                    double sendTime = totalBlockMessageSize/m_uploadSpeed;
+                                    double eventTime;
+
+                                    if(m_sendBlockTimes.size() == 0 || Simulator::Now().GetSeconds() > m_sendBlockTimes.back())
+                                    {
+                                        eventTime = 0;
+                                    }
+                                    else
+                                    {
+                                        eventTime = m_sendBlockTimes.back() - Simulator::Now().GetSeconds();
+                                    }
+
+                                    m_sendBlockTimes.push_back(Simulator::Now().GetSeconds()+eventTime + sendTime);
+
+                                    NS_LOG_INFO("Node " << GetNode()->GetId() << " will start sending the block to "
+                                                << InetSocketAddress::ConvertFrom(from).GetIpv4()
+                                                << " at " << Simulator::Now().GetSeconds() + eventTime << "\n");
+                                    
+                                    rapidjson::StringBuffer packetInfo;
+                                    rapidjson::Writer<rapidjson::StringBuffer> writer(packetInfo);
+                                    d.Accept(writer);
+                                    std::string packet = packetInfo.GetString();
+                                    NS_LOG_INFO("DEBUG: " << packetInfo.GetString());
+
+                                    Simulator::Schedule (Seconds(eventTime), &BlockchainNode::SendBlock, this, packet, from);
+                                    Simulator::Schedule (Seconds(eventTime + sendTime), &BlockchainNode::RemoveSendTime, this);
                                 }
-                                else
-                                {
-                                    eventTime = m_sendBlockTimes.back() - Simulator::Now().GetSeconds();
-                                }
-
-                                m_sendBlockTimes.push_back(Simulator::Now().GetSeconds()+eventTime + sendTime);
-
-                                NS_LOG_INFO("Node " << GetNode()->GetId() << " will start sending the block to "
-                                            << InetSocketAddress::ConvertFrom(from).GetIpv4()
-                                            << " at " << Simulator::Now().GetSeconds() + eventTime << "\n");
-                                
-                                rapidjson::StringBuffer packetInfo;
-                                rapidjson::Writer<rapidjson::StringBuffer> writer(packetInfo);
-                                d.Accept(writer);
-                                std::string packet = packetInfo.GetString();
-                                NS_LOG_INFO("DEBUG: " << packetInfo.GetString());
-
-                                Simulator::Schedule (Seconds(eventTime), &BlockchainNode::SendBlock, this, packet, from);
-                                Simulator::Schedule (Seconds(eventTime + sendTime), &BlockchainNode::RemoveSendTime, this);
                             }
 
                             break;
@@ -999,59 +1036,64 @@ namespace ns3 {
                         case BLOCK:
                         {
                             NS_LOG_INFO("BLOCK");
-                            int blockMessageSize = 0;
-                            double receiveTime;
-                            double eventTime = 0;
-                            double minSpeed = std::min(m_downloadSpeed, m_peersUploadSpeeds[InetSocketAddress::ConvertFrom(from).GetIpv4()]*1000000/8);
 
-                            blockMessageSize += m_blockchainMessageHeader;
+                            if(m_committerType != CLIENT)
+                            {
+                                int blockMessageSize = 0;
+                                double receiveTime;
+                                double eventTime = 0;
+                                double minSpeed = std::min(m_downloadSpeed, m_peersUploadSpeeds[InetSocketAddress::ConvertFrom(from).GetIpv4()]*1000000/8);
+
+                                blockMessageSize += m_blockchainMessageHeader;
+                                
+
+                                for(unsigned int j = 0; j < d["blocks"].Size(); j++)
+                                {
+                                    blockMessageSize += d["blocks"][j]["size"].GetInt();
+                                }
+
+                        
+                                m_nodeStats->blockReceivedBytes += blockMessageSize;
+
+                                rapidjson::StringBuffer blockInfo;
+                                rapidjson::Writer<rapidjson::StringBuffer> blockWriter(blockInfo);
+                                d.Accept(blockWriter);
+                                /*
+                                if(GetNode()->GetId() == 10)
+                                {
+                                    std::cout<<"BLOCK: At time " << Simulator::Now().GetSeconds()
+                                            << " Node " << GetNode()->GetId()
+                                            << " received a block message " << blockInfo.GetString() << "\n";
+                                }
+                                */
+                                
+                                NS_LOG_INFO("BLOCK: At time " << Simulator::Now().GetSeconds()
+                                            << " Node " << GetNode()->GetId()
+                                            << " received a block message " << blockInfo.GetString());
+                                NS_LOG_INFO(m_downloadSpeed << " " 
+                                            << m_peersUploadSpeeds[InetSocketAddress::ConvertFrom(from). GetIpv4()] * 1000000/8 << " " << minSpeed);
+
+                                std::string help = blockInfo.GetString();
+
+                                if(m_receiveBlockTimes.size() == 0 || Simulator::Now().GetSeconds() > m_receiveBlockTimes.back())
+                                {
+                                    receiveTime = blockMessageSize / m_downloadSpeed;
+                                    eventTime = blockMessageSize / minSpeed;
+                                }
+                                else
+                                {
+                                    receiveTime = blockMessageSize / m_downloadSpeed + m_receiveBlockTimes.back() - Simulator::Now().GetSeconds();
+                                    eventTime = blockMessageSize / minSpeed + m_receiveBlockTimes.back() - Simulator::Now().GetSeconds();
+                                }
+
+                                m_receiveBlockTimes.push_back(Simulator::Now().GetSeconds()+receiveTime);
+
+                                Simulator::Schedule(Seconds(eventTime), &BlockchainNode::ReceivedBlockMessage, this, help, from);
+                                Simulator::Schedule(Seconds(receiveTime), &BlockchainNode::RemoveReceiveTime, this);
+                                NS_LOG_INFO("BLOCK: Node " << GetNode()->GetId() << " will receive the full block message at "
+                                            << Simulator::Now().GetSeconds() + eventTime);
+                            }
                             
-
-                            for(unsigned int j = 0; j < d["blocks"].Size(); j++)
-                            {
-                                blockMessageSize += d["blocks"][j]["size"].GetInt();
-                            }
-
-                    
-                            m_nodeStats->blockReceivedBytes += blockMessageSize;
-
-                            rapidjson::StringBuffer blockInfo;
-                            rapidjson::Writer<rapidjson::StringBuffer> blockWriter(blockInfo);
-                            d.Accept(blockWriter);
-                            /*
-                            if(GetNode()->GetId() == 10)
-                            {
-                                std::cout<<"BLOCK: At time " << Simulator::Now().GetSeconds()
-                                        << " Node " << GetNode()->GetId()
-                                        << " received a block message " << blockInfo.GetString() << "\n";
-                            }
-                            */
-                            
-                            NS_LOG_INFO("BLOCK: At time " << Simulator::Now().GetSeconds()
-                                        << " Node " << GetNode()->GetId()
-                                        << " received a block message " << blockInfo.GetString());
-                            NS_LOG_INFO(m_downloadSpeed << " " 
-                                        << m_peersUploadSpeeds[InetSocketAddress::ConvertFrom(from). GetIpv4()] * 1000000/8 << " " << minSpeed);
-
-                            std::string help = blockInfo.GetString();
-
-                            if(m_receiveBlockTimes.size() == 0 || Simulator::Now().GetSeconds() > m_receiveBlockTimes.back())
-                            {
-                                receiveTime = blockMessageSize / m_downloadSpeed;
-                                eventTime = blockMessageSize / minSpeed;
-                            }
-                            else
-                            {
-                                receiveTime = blockMessageSize / m_downloadSpeed + m_receiveBlockTimes.back() - Simulator::Now().GetSeconds();
-                                eventTime = blockMessageSize / minSpeed + m_receiveBlockTimes.back() - Simulator::Now().GetSeconds();
-                            }
-
-                            m_receiveBlockTimes.push_back(Simulator::Now().GetSeconds()+receiveTime);
-
-                            Simulator::Schedule(Seconds(eventTime), &BlockchainNode::ReceivedBlockMessage, this, help, from);
-                            Simulator::Schedule(Seconds(receiveTime), &BlockchainNode::RemoveReceiveTime, this);
-                            NS_LOG_INFO("BLOCK: Node " << GetNode()->GetId() << " will receive the full block message at "
-                                        << Simulator::Now().GetSeconds() + eventTime);
 
                             break;
                         }
@@ -1282,6 +1324,9 @@ namespace ns3 {
                     if(notValTrans_it->IsValidated() != true)
                     {
                         notValTrans_it->SetValidation();
+
+                        //Send to Client node
+                        NotifyTransaction(*notValTrans_it);
                     }
                     break;
                 }
@@ -1457,12 +1502,21 @@ namespace ns3 {
         value = newTrans.GetTransTimeStamp();
         transInfo.AddMember("timestamp", value, transD.GetAllocator());
 
+        value = newTrans.IsValidated();
+        transInfo.AddMember("validation", value, transD.GetAllocator());
+
+        value = newTrans.GetExecution();
+        transInfo.AddMember("execution", value, transD.GetAllocator());
+
         array.PushBack(transInfo, transD.GetAllocator());
         transD.AddMember("transactions", array, transD.GetAllocator());
 
         rapidjson::StringBuffer transactionInfo;
         rapidjson::Writer<rapidjson::StringBuffer> tranWriter(transactionInfo);
         transD.Accept(tranWriter);
+
+        //std::cout<<"Type : " << m_committerType << " nodeId : " << GetNode()->GetId() <<" broadcaste " << megType <<"\n";
+
 
         for(std::vector<Ipv4Address>::const_iterator i = m_peersAddresses.begin(); i != m_peersAddresses.end(); ++i)
         {
@@ -1553,7 +1607,6 @@ namespace ns3 {
         int nodeId = GetNode()->GetId();
         int transId = m_transactionId;
         double tranTimestamp = Simulator::Now().GetSeconds();
-        m_receivedFromEndorsers = 0;
         transD.SetObject();
 
         Transaction newTrans(nodeId, transId, tranTimestamp);
@@ -1601,7 +1654,7 @@ namespace ns3 {
             m_peersSockets[*i]->Send(delimiter, 1, 0);
         
         }
-        //std::cout<< GetNode()->GetId() << "created and sent transaction\n";
+        std::cout<< "time : "<<Simulator::Now().GetSeconds() << ", Node type: "<< m_committerType <<" - NodeId: " <<GetNode()->GetId() << " created and sent transaction\n";
         m_transactionId++;
 
         ScheduleNextTransaction();
@@ -1673,11 +1726,59 @@ namespace ns3 {
     }
 
     void
-    BlockchainNode::NotifyTransaction(const Block &newBlock)
+    BlockchainNode::NotifyTransaction(const Transaction &newTrans)
     {
         NS_LOG_FUNCTION(this);
 
+        rapidjson::Document transD;
+
+        int nodeId = newTrans.GetTransNodeId();
+        int transId = newTrans.GetTransId();
+        double tranTimestamp = newTrans.GetTransTimeStamp();
+
+        transD.SetObject();
+
+        rapidjson::Value value;
+        rapidjson::Value array(rapidjson::kArrayType);
+        rapidjson::Value transInfo(rapidjson::kObjectType);
+
+        value.SetString("transaction");
+        transD.AddMember("type", value, transD.GetAllocator());
+
+        value = RESULT_TRANS;
+        transD.AddMember("message", value, transD.GetAllocator());
+
+        value = newTrans.GetTransNodeId();
+        transInfo.AddMember("nodeId", value, transD.GetAllocator());
+
+        value = newTrans.GetTransId();
+        transInfo.AddMember("transId", value, transD.GetAllocator());
+
+        value = newTrans.GetTransTimeStamp();
+        transInfo.AddMember("timestamp", value, transD.GetAllocator());
+
+        value = newTrans.IsValidated();
+        transInfo.AddMember("validation", value, transD.GetAllocator());
         
+        value = newTrans.GetExecution();
+        transInfo.AddMember("execution", value, transD.GetAllocator());
+
+        array.PushBack(transInfo, transD.GetAllocator());
+        transD.AddMember("transactions", array, transD.GetAllocator());
+
+        rapidjson::StringBuffer transactionInfo;
+        rapidjson::Writer<rapidjson::StringBuffer> tranWriter(transactionInfo);
+        transD.Accept(tranWriter);
+
+        for(std::vector<Ipv4Address>::const_iterator i = m_peersAddresses.begin(); i != m_peersAddresses.end(); ++i)
+        {
+            
+            const uint8_t delimiter[] = "#";
+
+            m_peersSockets[*i]->Send(reinterpret_cast<const uint8_t*>(transactionInfo.GetString()), transactionInfo.GetSize(), 0);
+            m_peersSockets[*i]->Send(delimiter, 1, 0);
+        
+        }
 
     }
 

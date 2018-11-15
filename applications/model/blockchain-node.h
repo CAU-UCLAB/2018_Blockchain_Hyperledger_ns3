@@ -153,7 +153,7 @@ namespace ns3 {
 
             void ExecuteTransaction(const Transaction &newTrans, Ipv4Address receivedFromIpv4);
 
-            void NotifyTransaction(const Block &newBlock);
+            void NotifyTransaction(const Transaction &newTrans);
 
             /*
              * Send a message to a peer
@@ -249,7 +249,6 @@ namespace ns3 {
             int             m_transactionId;
             EventId         m_nextTransaction;
             int             m_numberofEndorsers;
-            int             m_receivedFromEndorsers;
 
             std::vector<Transaction>                        m_transaction;
             std::vector<Transaction>                        m_notValidatedTransaction;
