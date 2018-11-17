@@ -60,10 +60,19 @@ namespace ns3 {
         m_meanBlockReceiveTime = 0;
         m_previousBlockReceiveTime = 0;
         m_meanBlockPropagationTime = 0;
+        m_meanEndorsementTime = 0;
+        m_meanOrderingTime = 0;
+        m_meanValidationTime = 0;
+        m_meanLatency = 0;
         m_meanBlockSize = 0;
         m_numberOfPeers = m_peersAddresses.size();
         m_transactionId = 1;
         m_numberofEndorsers = 6;
+        m_totalEndorsement = 0;
+        m_totalOrdering = 0;
+        m_totalValidation = 0;
+        m_totalCreatedTransaction = 0;
+
     }
 
     BlockchainNode::~BlockchainNode(void)
@@ -170,6 +179,8 @@ namespace ns3 {
             m_socket->Bind(m_local);
             m_socket->Listen();
             m_socket->ShutdownSend();
+
+
             if(addressUtils::IsMulticast(m_local))
             {
                 Ptr<UdpSocket> udpSocket = DynamicCast<UdpSocket> (m_socket);
@@ -222,11 +233,30 @@ namespace ns3 {
         m_nodeStats->blocksInForks = 0;
         m_nodeStats->connections = m_peersAddresses.size();
         m_nodeStats->blockTimeouts = 0;
+        m_nodeStats->nodeGeneratedTransaction = 0;
+        m_nodeStats->meanEndorsementTime = 0;
+        m_nodeStats->meanOrderingTime = 0;
+        m_nodeStats->meanValidationTime = 0;
+        m_nodeStats->meanLatency = 0;
 
-        if(m_committerType == CLIENT)
+        if(m_committerType == COMMITTER)
         {
+            m_nodeStats->nodeType = 0;
+        }
+        else if(m_committerType == ENDORSER)
+        {
+            m_nodeStats->nodeType = 1;
+        }
+        else if(m_committerType == CLIENT)
+        {
+            m_nodeStats->nodeType = 2;
             CreateTransaction();
         }
+        else
+        {
+            m_nodeStats->nodeType = 3;
+        }
+        
         //ScheduleNextTransaction();
     }
 
@@ -265,7 +295,10 @@ namespace ns3 {
         m_nodeStats->meanBlockPropagationTime = m_meanBlockPropagationTime;
         m_nodeStats->meanBlockSize = m_meanBlockSize;
         m_nodeStats->totalBlocks = m_blockchain.GetTotalBlocks();
-        
+        m_nodeStats->meanEndorsementTime = m_meanEndorsementTime;
+        m_nodeStats->meanOrderingTime = m_meanOrderingTime;
+        m_nodeStats->meanValidationTime = m_meanValidationTime;
+        m_nodeStats->meanLatency = m_meanLatency;
         
     }
 
@@ -455,6 +488,8 @@ namespace ns3 {
                                         if(m_committerType == ENDORSER)
                                         {
                                             newTrans.SetExecution(GetNode()->GetId());
+                                            m_totalEndorsement++;
+                                            m_meanEndorsementTime = (m_meanEndorsementTime*static_cast<double>(m_totalEndorsement-1) + (Simulator::Now().GetSeconds() - timestamp))/static_cast<double>(m_totalEndorsement);
                                             ExecuteTransaction(newTrans, InetSocketAddress::ConvertFrom(from).GetIpv4());
                                             //std::cout<<"Type: ENDOESER " <<" Node Id: "<< GetNode()->GetId() << " excute transaction\n";
                                         }
@@ -668,8 +703,10 @@ namespace ns3 {
                                     }
                                     else
                                     {
+                                        m_totalCreatedTransaction++;
+                                        m_meanLatency = (m_meanLatency*static_cast<double>(m_totalCreatedTransaction-1) + (Simulator::Now().GetSeconds() - timestamp))/static_cast<double>(m_totalCreatedTransaction);
                                         //Measure received time
-                                        std::cout<<"latency : "<<Simulator::Now().GetSeconds() - timestamp <<" , CLIENT node "<<GetNode()->GetId()<< " confirmed that transactions had succeeded\n";
+                                        //std::cout<<"latency : "<<Simulator::Now().GetSeconds() - timestamp <<" , CLIENT node "<<GetNode()->GetId()<< " confirmed that transactions had succeeded\n";
                                     }
                                 }
                             }
@@ -1324,7 +1361,8 @@ namespace ns3 {
                     if(notValTrans_it->IsValidated() != true)
                     {
                         notValTrans_it->SetValidation();
-
+                        m_totalValidation++;
+                        m_meanValidationTime = (m_meanValidationTime*static_cast<double>(m_totalValidation-1) + (Simulator::Now().GetSeconds() - notValTrans_it->GetTransTimeStamp()))/static_cast<double>(m_totalValidation);
                         //Send to Client node
                         NotifyTransaction(*notValTrans_it);
                     }
@@ -1336,6 +1374,9 @@ namespace ns3 {
             {
                 trans_it->SetValidation();
                 m_transaction.push_back(*trans_it);
+
+                m_totalValidation++;
+                m_meanValidationTime = (m_meanValidationTime*static_cast<double>(m_totalValidation-1) + (Simulator::Now().GetSeconds() - notValTrans_it->GetTransTimeStamp()))/static_cast<double>(m_totalValidation);
             }
 
             
@@ -1654,7 +1695,7 @@ namespace ns3 {
             m_peersSockets[*i]->Send(delimiter, 1, 0);
         
         }
-        std::cout<< "time : "<<Simulator::Now().GetSeconds() << ", Node type: "<< m_committerType <<" - NodeId: " <<GetNode()->GetId() << " created and sent transaction\n";
+        //std::cout<< "time : "<<Simulator::Now().GetSeconds() << ", Node type: "<< m_committerType <<" - NodeId: " <<GetNode()->GetId() << " created and sent transaction\n";
         m_transactionId++;
 
         ScheduleNextTransaction();

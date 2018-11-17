@@ -238,6 +238,10 @@ namespace ns3 {
             double          m_meanBlockReceiveTime;         //The mean time interval between two consecutive blocks (10~15sec)
             double          m_previousBlockReceiveTime;     //The time that the node received the previous block
             double          m_meanBlockPropagationTime;     //The mean time that the node has to wait in order to receive a newly mined block
+            double          m_meanEndorsementTime;
+            double          m_meanOrderingTime;
+            double          m_meanValidationTime;
+            double          m_meanLatency;
             double          m_meanBlockSize;                //The mean Block size
             Blockchain      m_blockchain;                   //The node's blockchain
             Time            m_invTimeoutMinutes;
@@ -249,6 +253,10 @@ namespace ns3 {
             int             m_transactionId;
             EventId         m_nextTransaction;
             int             m_numberofEndorsers;
+            int             m_totalEndorsement;
+            int             m_totalOrdering;
+            int             m_totalValidation;
+            int             m_totalCreatedTransaction;
 
             std::vector<Transaction>                        m_transaction;
             std::vector<Transaction>                        m_notValidatedTransaction;

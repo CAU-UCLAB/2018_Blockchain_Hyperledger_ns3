@@ -86,9 +86,14 @@ namespace ns3 {
         int     connections;
         int     minedBlocksInMainChain;
         long    blockTimeouts;
-        double  meanTransactionConfirmTime;
         int     nodeGeneratedTransaction;
-        
+        double  meanEndorsementTime;
+        double  meanOrderingTime;
+        double  meanValidationTime;
+        double  meanLatency;
+        int     nodeType;
+      
+    
     } nodeStatistics;
 
     typedef struct{

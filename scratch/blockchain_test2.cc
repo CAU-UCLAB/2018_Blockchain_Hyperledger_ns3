@@ -345,13 +345,15 @@ int main(int argc, char *argv[])
 
     #ifdef MPI_TEST
 
-        int blocklen[25] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
+        int blocklen[31] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
                             1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                            1, 1, 1, 1, 1};
-        MPI_Aint    disp[25];
-        MPI_Datatype    dtypes[25] = {MPI_INT, MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE, MPI_INT, MPI_INT, MPI_INT, MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE,
+                            1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                            1};
+        MPI_Aint    disp[31];
+        MPI_Datatype    dtypes[31] = {MPI_INT, MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE, MPI_INT, MPI_INT, MPI_INT, MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE,
                                         MPI_LONG, MPI_LONG, MPI_LONG, MPI_LONG, MPI_LONG, MPI_LONG, MPI_LONG, MPI_LONG, MPI_LONG, MPI_LONG,
-                                        MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_LONG};
+                                        MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_LONG, MPI_INT, MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE,
+                                        MPI_INT};
         MPI_Datatype    mpi_nodeStatisticsType;
 
         disp[0]= offsetof(nodeStatistics, nodeId);
@@ -379,8 +381,14 @@ int main(int argc, char *argv[])
         disp[22]= offsetof(nodeStatistics, connections);
         disp[23]= offsetof(nodeStatistics, minedBlocksInMainChain);
         disp[24]= offsetof(nodeStatistics, blockTimeouts);
+        disp[25]= offsetof(nodeStatistics, nodeGeneratedTransaction);
+        disp[26]= offsetof(nodeStatistics, meanEndorsementTime);
+        disp[27]= offsetof(nodeStatistics, meanOrderingTime);
+        disp[28]= offsetof(nodeStatistics, meanValidationTime);
+        disp[29]= offsetof(nodeStatistics, meanLatency);
+        disp[30]= offsetof(nodeStatistics, nodeType);
 
-        MPI_Type_create_struct(25, blocklen, disp, dtypes, &mpi_nodeStatisticsType);
+        MPI_Type_create_struct(31, blocklen, disp, dtypes, &mpi_nodeStatisticsType);
         MPI_Type_commit(&mpi_nodeStatisticsType);
 
         if(systemId != 0 && systemCount > 1)
@@ -430,6 +438,12 @@ int main(int argc, char *argv[])
                 stats[recv.nodeId].connections=recv.connections;
                 stats[recv.nodeId].minedBlocksInMainChain=recv.minedBlocksInMainChain;
                 stats[recv.nodeId].blockTimeouts =recv.blockTimeouts;
+                stats[recv.nodeId].nodeGeneratedTransaction =recv.nodeGeneratedTransaction;
+                stats[recv.nodeId].meanEndorsementTime =recv.meanEndorsementTime;
+                stats[recv.nodeId].meanOrderingTime =recv.meanOrderingTime;
+                stats[recv.nodeId].meanValidationTime =recv.meanValidationTime;
+                stats[recv.nodeId].meanLatency =recv.meanLatency;
+                stats[recv.nodeId].nodeType =recv.nodeType;
                 count++;
             }
         }
@@ -549,7 +563,12 @@ void PrintTotalStats(nodeStatistics *stats, int totalNodes, double start, double
     double     connectionsPerMiner = 0;
     double     download = 0;
     double     upload = 0;
+    double     meanEndorsementTime = 0;
+    double     meanValidationTime = 0;
+    double     meanOrderingTime = 0;
+    double     meanLatency = 0;
 
+    int        nodeType = 0;
     uint32_t   nodes = 0;
     uint32_t   miners = 0;
     std::vector<double>    propagationTimes;
@@ -606,6 +625,25 @@ void PrintTotalStats(nodeStatistics *stats, int totalNodes, double start, double
             minersPropagationTimes.push_back(stats[it].meanBlockPropagationTime);
             miners++;
         }
+
+        if(stats[it].nodeType == 0)
+        {
+            meanValidationTime = (meanValidationTime*it + stats[it].meanValidationTime)/static_cast<double>(it+1) ;
+        }
+        else if(stats[it].nodeType == 1)
+        {
+            meanValidationTime = (meanValidationTime*it + stats[it].meanValidationTime)/static_cast<double>(it+1) ;
+            meanEndorsementTime = (meanEndorsementTime*it + stats[it].meanEndorsementTime)/static_cast<double>(it+1);
+        }
+        else if(stats[it].nodeType ==2)
+        {
+            meanLatency = (meanLatency*it + stats[it].meanLatency)/static_cast<double>(it+1);
+        }
+        else
+        {
+            meanOrderingTime = (meanOrderingTime*it + stats[it].meanOrderingTime)/static_cast<double>(it+1);
+        }
+
     }
   
     averageBandwidthPerNode = invReceivedBytes + invSentBytes + getHeadersReceivedBytes + getHeadersSentBytes + headersReceivedBytes
@@ -676,7 +714,10 @@ void PrintTotalStats(nodeStatistics *stats, int totalNodes, double start, double
                 << averageBandwidthPerNode / (1000 *(totalBlocks - 1) * averageBlockGenIntervalMinutes * secPerMin) * 8
                 << " Kbps and " << averageBandwidthPerNode / (1000 * (totalBlocks - 1)) << " KB/block)\n";
     std::cout << (finish - start)/ (totalBlocks - 1)<< "s per generated block\n";
-    
+    std::cout << "meanEndorsementTime =" << meanEndorsementTime <<"s \n";
+    std::cout << "meanOrderingTime =" << meanOrderingTime <<"s \n";
+    std::cout << "meanValidationTime =" << meanValidationTime <<"s \n";
+    std::cout << "meanLatency =" << meanLatency <<"s \n";
     
     std::cout << "\nBlock Propagation Times = [";
     for(auto it = propagationTimes.begin(); it != propagationTimes.end(); it++)
