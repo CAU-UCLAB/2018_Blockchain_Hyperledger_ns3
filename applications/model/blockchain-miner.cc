@@ -104,6 +104,7 @@ namespace ns3 {
         m_minerAverageBlockGenInterval = 0;
         m_minerGeneratedBlocks = 0;
         m_previousBlockGenerationTime = 0;
+        m_meanNumberofTransactions = 0;
 
         std::random_device rd;
         m_generator.seed(rd());
@@ -198,6 +199,7 @@ namespace ns3 {
         m_nodeStats->minerGeneratedBlocks = m_minerGeneratedBlocks;
         m_nodeStats->minerAverageBlockGenInterval = m_minerAverageBlockGenInterval;
         m_nodeStats->minerAverageBlockSize = m_minerAverageBlockSize;
+        m_nodeStats->meanNumberofTransactions = m_meanNumberofTransactions;
 
         if(m_fistToMine)
         {
@@ -306,7 +308,7 @@ namespace ns3 {
             //std::cout<<"m_nextBlockTime(2) : " << m_nextBlockTime <<"\n";
             m_nextMiningEvent = Simulator::Schedule(Seconds(m_nextBlockTime), &BlockchainMiner::MineBlock, this);
             */
-            m_nextBlockTime = 0.5;
+            m_nextBlockTime = 2;
             m_nextMiningEvent = Simulator::Schedule(Seconds(m_nextBlockTime), &BlockchainMiner::MineBlock, this);
         }
     }
@@ -370,7 +372,10 @@ namespace ns3 {
             trans_it->SetValidation();
             m_totalOrdering++;
             m_meanOrderingTime = (m_meanOrderingTime*static_cast<double>(m_totalOrdering-1) + (Simulator::Now().GetSeconds() - trans_it->GetTransTimeStamp()))/static_cast<double>(m_totalOrdering);
+
         }
+        //std::cout<<m_notValidatedTransaction.size()<<"\n";
+        m_meanNumberofTransactions = (m_meanNumberofTransactions*static_cast<double>(m_minerGeneratedBlocks) + m_notValidatedTransaction.size())/static_cast<double>(m_minerGeneratedBlocks+1);
         newBlock.SetTransactions(m_notValidatedTransaction);
         m_notValidatedTransaction.clear();
 

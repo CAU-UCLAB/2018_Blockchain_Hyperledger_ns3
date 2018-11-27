@@ -1375,8 +1375,8 @@ namespace ns3 {
                 trans_it->SetValidation();
                 m_transaction.push_back(*trans_it);
 
-                m_totalValidation++;
-                m_meanValidationTime = (m_meanValidationTime*static_cast<double>(m_totalValidation-1) + (Simulator::Now().GetSeconds() - notValTrans_it->GetTransTimeStamp()))/static_cast<double>(m_totalValidation);
+                //m_totalValidation++;
+                //m_meanValidationTime = (m_meanValidationTime*static_cast<double>(m_totalValidation-1) + (Simulator::Now().GetSeconds() - notValTrans_it->GetTransTimeStamp()))/static_cast<double>(m_totalValidation);
             }
 
             

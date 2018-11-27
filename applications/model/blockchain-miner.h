@@ -73,6 +73,7 @@ namespace ns3{
             double                      m_minerAverageBlockGenInterval;
             int                         m_minerGeneratedBlocks;
             double                      m_hashRate;
+            double                      m_meanNumberofTransactions;
 
             std::geometric_distribution<int>    m_blockGenTimeDistribution;
 

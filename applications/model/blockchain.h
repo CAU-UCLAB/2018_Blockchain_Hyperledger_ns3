@@ -92,6 +92,7 @@ namespace ns3 {
         double  meanValidationTime;
         double  meanLatency;
         int     nodeType;
+        double  meanNumberofTransactions;
       
     
     } nodeStatistics;

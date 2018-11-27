@@ -345,15 +345,15 @@ int main(int argc, char *argv[])
 
     #ifdef MPI_TEST
 
-        int blocklen[31] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
+        int blocklen[32] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
                             1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
                             1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                            1};
-        MPI_Aint    disp[31];
-        MPI_Datatype    dtypes[31] = {MPI_INT, MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE, MPI_INT, MPI_INT, MPI_INT, MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE,
+                            1, 1};
+        MPI_Aint    disp[32];
+        MPI_Datatype    dtypes[32] = {MPI_INT, MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE, MPI_INT, MPI_INT, MPI_INT, MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE,
                                         MPI_LONG, MPI_LONG, MPI_LONG, MPI_LONG, MPI_LONG, MPI_LONG, MPI_LONG, MPI_LONG, MPI_LONG, MPI_LONG,
                                         MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_LONG, MPI_INT, MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE,
-                                        MPI_INT};
+                                        MPI_INT, MPI_DOUBLE};
         MPI_Datatype    mpi_nodeStatisticsType;
 
         disp[0]= offsetof(nodeStatistics, nodeId);
@@ -387,8 +387,9 @@ int main(int argc, char *argv[])
         disp[28]= offsetof(nodeStatistics, meanValidationTime);
         disp[29]= offsetof(nodeStatistics, meanLatency);
         disp[30]= offsetof(nodeStatistics, nodeType);
+        disp[31]= offsetof(nodeStatistics, meanNumberofTransactions);
 
-        MPI_Type_create_struct(31, blocklen, disp, dtypes, &mpi_nodeStatisticsType);
+        MPI_Type_create_struct(32, blocklen, disp, dtypes, &mpi_nodeStatisticsType);
         MPI_Type_commit(&mpi_nodeStatisticsType);
 
         if(systemId != 0 && systemCount > 1)
@@ -444,6 +445,7 @@ int main(int argc, char *argv[])
                 stats[recv.nodeId].meanValidationTime =recv.meanValidationTime;
                 stats[recv.nodeId].meanLatency =recv.meanLatency;
                 stats[recv.nodeId].nodeType =recv.nodeType;
+                stats[recv.nodeId].meanNumberofTransactions = recv.meanNumberofTransactions;
                 count++;
             }
         }
@@ -567,6 +569,7 @@ void PrintTotalStats(nodeStatistics *stats, int totalNodes, double start, double
     double     meanValidationTime = 0;
     double     meanOrderingTime = 0;
     double     meanLatency = 0;
+    double     meanNumberofTransactions = 0;
 
     int        nodeType = 0;
     uint32_t   nodes = 0;
@@ -623,6 +626,7 @@ void PrintTotalStats(nodeStatistics *stats, int totalNodes, double start, double
             connectionsPerMiner = connectionsPerMiner*miners/static_cast<double>(miners + 1) + stats[it].connections/static_cast<double>(miners + 1);
             meanMinersBlockPropagationTime = meanMinersBlockPropagationTime*miners/static_cast<double>(miners + 1) + stats[it].meanBlockPropagationTime/static_cast<double>(miners + 1);
             minersPropagationTimes.push_back(stats[it].meanBlockPropagationTime);
+            meanNumberofTransactions = (meanNumberofTransactions*static_cast<double>(miners) + stats[it].meanNumberofTransactions)/static_cast<double>(miners + 1);
             miners++;
         }
 
@@ -718,6 +722,8 @@ void PrintTotalStats(nodeStatistics *stats, int totalNodes, double start, double
     std::cout << "meanOrderingTime =" << meanOrderingTime <<"s \n";
     std::cout << "meanValidationTime =" << meanValidationTime <<"s \n";
     std::cout << "meanLatency =" << meanLatency <<"s \n";
+    std::cout << "Ths average transactions in a block =" << meanNumberofTransactions <<"\n";
+    
     
     std::cout << "\nBlock Propagation Times = [";
     for(auto it = propagationTimes.begin(); it != propagationTimes.end(); it++)
