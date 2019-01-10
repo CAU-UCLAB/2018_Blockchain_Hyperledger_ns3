@@ -46,6 +46,8 @@ namespace ns3 {
 
             void SetCommitterType (enum CommitterType cType);
 
+            void SetCreatingTransactionTime(int cTime);
+
         protected:
 
             virtual void DoDispose (void);           // inherited from application base class.
@@ -257,6 +259,7 @@ namespace ns3 {
             int             m_totalOrdering;
             int             m_totalValidation;
             int             m_totalCreatedTransaction;
+            int             m_creatingTransactionTime;
 
             std::vector<Transaction>                        m_transaction;
             std::vector<Transaction>                        m_notValidatedTransaction;

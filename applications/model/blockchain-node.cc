@@ -67,11 +67,12 @@ namespace ns3 {
         m_meanBlockSize = 0;
         m_numberOfPeers = m_peersAddresses.size();
         m_transactionId = 1;
-        m_numberofEndorsers = 6;
+        m_numberofEndorsers = 10;
         m_totalEndorsement = 0;
         m_totalOrdering = 0;
         m_totalValidation = 0;
         m_totalCreatedTransaction = 0;
+
 
     }
 
@@ -144,6 +145,13 @@ namespace ns3 {
     {
         NS_LOG_FUNCTION(this);
         m_committerType = cType;
+    }
+
+    void
+    BlockchainNode::SetCreatingTransactionTime(int cTime)
+    {
+        NS_LOG_FUNCTION(this);
+        m_creatingTransactionTime = cTime;
     }
 
     void
@@ -1706,7 +1714,8 @@ namespace ns3 {
     BlockchainNode::ScheduleNextTransaction()
     {
         NS_LOG_FUNCTION(this);
-        double tTime = rand()%20+1;
+        double tTime = rand()%m_creatingTransactionTime+1;
+        //std::cout<<"crateing time = " << tTime << "\n";
         m_nextTransaction = Simulator::Schedule(Seconds(tTime), &BlockchainNode::CreateTransaction, this);
 
     }

@@ -37,6 +37,7 @@ namespace ns3
             void SetNodeStats(nodeStatistics *nodeStats);
             void SetProtocolType(enum ProtocolType protocolType);
             void SetCommitterType(enum CommitterType cType);
+            void SetCreatingTransactionTime(int cTime);
 
         protected:
 
@@ -51,7 +52,8 @@ namespace ns3
             nodeInternetSpeed               m_internetSpeeds;
             nodeStatistics                  *m_nodeStats;
             enum ProtocolType               m_protocolType;
-            enum CommitterType              m_committerType;          
+            enum CommitterType              m_committerType;
+            int                             m_creatingTransactionTime;          
 
     };
 

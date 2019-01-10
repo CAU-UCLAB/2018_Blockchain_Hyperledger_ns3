@@ -82,6 +82,7 @@ namespace ns3 {
         app->SetNodeStats(m_nodeStats);
         app->SetProtocolType(m_protocolType);
         app->SetCommitterType(m_committerType);
+        app->SetCreatingTransactionTime(m_creatingTransactionTime);
 
         node->AddApplication(app);
 
@@ -128,6 +129,12 @@ namespace ns3 {
     BlockchainNodeHelper::SetCommitterType(enum CommitterType cType)
     {
         m_committerType = cType;
+    }
+
+    void
+    BlockchainNodeHelper::SetCreatingTransactionTime(int cTime)
+    {
+        m_creatingTransactionTime = cTime;
     }
 
 }

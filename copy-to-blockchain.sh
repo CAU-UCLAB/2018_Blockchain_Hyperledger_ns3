@@ -17,4 +17,5 @@ cp $NS3_FOLDER/src/applications/helper/blockchain-topology-helper.h $PROJECT_FOL
 cp $NS3_FOLDER/src/applications/helper/blockchain-topology-helper.cc $PROJECT_FOLDER/applications/helper/
 cp $NS3_FOLDER/src/internet/helper/ipv4-address-helper-custom.h $PROJECT_FOLDER/internet/helper/
 cp $NS3_FOLDER/src/internet/helper/ipv4-address-helper-custom.cc $PROJECT_FOLDER/internet/helper/
+cp $NS3_FOLDER/scratch/blockchain_test3.cc $PROJECT_FOLDER/scratch
 
